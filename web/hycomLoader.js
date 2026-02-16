@@ -1,5 +1,5 @@
-// streamingHYCOMLoader_3D.js - 3D MULTI-DEPTH STREAMING
-console.log('=== Streaming HYCOM Loader 3D (Multi-Depth Optimized) ===');
+// streamingHYCOMLoader_3D.js - 3D MULTI-DEPTH STREAMING with PROPER MEMORY MANAGEMENT
+console.log('=== Streaming HYCOM Loader 3D (Memory Optimized) ===');
 
 class StreamingHYCOMLoader_3D {
     constructor() {
@@ -13,8 +13,9 @@ class StreamingHYCOMLoader_3D {
         this.spatialGrid = null;
         this.gridBounds = null;
         this.defaultDepth = 0;              // Default to surface layer
+        this.maxDaysInMemory = 2;           // Only keep 2 days by default
 
-        console.log("🌊 3D HYCOM Loader initialized (Multi-Depth)");
+        console.log("🌊 3D HYCOM Loader initialized (Memory Optimized)");
     }
 
     // ==================== INITIALIZATION ====================
@@ -73,7 +74,7 @@ class StreamingHYCOMLoader_3D {
             return null;
         }
 
-        return this._loadDayByDate3D(dayData.year, dayData.month, dayData.day);
+        return this.loadDayByDate(dayData.year, dayData.month, dayData.day);
     }
 
     async loadDayByDate(year, month, day) {
@@ -86,6 +87,8 @@ class StreamingHYCOMLoader_3D {
 
         // If already loaded, return immediately
         if (this.loadedDays.has(dateKey)) {
+            // Update active day
+            this.activeDayKey = dateKey;
             return this.loadedDays.get(dateKey);
         }
 
@@ -95,9 +98,21 @@ class StreamingHYCOMLoader_3D {
 
         try {
             const result = await loadPromise;
+
+            // Store in cache
             this.loadedDays.set(dateKey, result);
             this.activeDayKey = dateKey;
+
+            // ENFORCE MEMORY LIMIT - Keep only the most recent days
+            this._enforceMemoryLimit();
+
+            console.log(`✅ Loaded day ${dateKey} (${(result.fileSize / 1024 / 1024).toFixed(1)}MB)`);
+            console.log(`   Cache now has ${this.loadedDays.size} days`);
+
             return result;
+        } catch (error) {
+            console.error(`❌ Failed to load day ${dateKey}:`, error);
+            throw error;
         } finally {
             this.loadingPromises.delete(dateKey);
         }
@@ -118,50 +133,48 @@ class StreamingHYCOMLoader_3D {
 
             const arrayBuffer = await response.arrayBuffer();
             const loadTime = performance.now() - startTime;
+            const fileSize = arrayBuffer.byteLength;
 
             // Parse the binary format (Version 4 with depth)
             const view = new DataView(arrayBuffer);
             const version = view.getInt32(0, true);
 
-            let dayArrays;
+            let dayData;
 
             if (version === 4) {
                 // Version 4: Multi-depth format
-                dayArrays = this._parseVersion4(view, arrayBuffer, dateKey);
+                dayData = this._parseVersion4(arrayBuffer, dateKey);
             } else if (version === 3) {
                 // Version 3: Single depth (for backward compatibility)
-                dayArrays = this._parseVersion3(view, arrayBuffer, dateKey);
-                dayArrays.nDepth = 1; // Single depth
-                dayArrays.depths = [0]; // Assume surface
+                dayData = this._parseVersion3(arrayBuffer, dateKey);
             } else {
                 throw new Error(`Unsupported binary version: ${version}`);
             }
 
-            console.log(`   Loaded ${dateKey}: ${(arrayBuffer.byteLength / (1024**2)).toFixed(1)}MB in ${loadTime.toFixed(0)}ms`);
-            console.log(`   Grid: ${dayArrays.nLat}x${dayArrays.nLon}x${dayArrays.nDepth}`);
+            // Add metadata (but NOT the original arrayBuffer!)
+            dayData.loadTime = loadTime;
+            dayData.fileSize = fileSize;
+            dayData.dateKey = dateKey;
+
+            console.log(`   Grid: ${dayData.nLat}x${dayData.nLon}x${dayData.nDepth}`);
 
             // Store grid info on first load
             if (!this.gridInfo) {
                 this.gridInfo = {
-                    nLat: dayArrays.nLat,
-                    nLon: dayArrays.nLon,
-                    nDepth: dayArrays.nDepth,
-                    totalCells: dayArrays.totalCells,
-                    totalDataPoints: dayArrays.totalDataPoints,
-                    depths: dayArrays.depths || this.metadata.depths,
-                    bytesPerArray: dayArrays.totalCells * 4
+                    nLat: dayData.nLat,
+                    nLon: dayData.nLon,
+                    nDepth: dayData.nDepth,
+                    totalCells: dayData.totalCells,
+                    totalDataPoints: dayData.totalDataPoints,
+                    depths: dayData.depths || this.metadata.depths,
+                    bytesPerArray: dayData.totalCells * 4
                 };
 
-                // Build spatial index using surface layer (index 0)
-                const surfaceLonArray = new Float32Array(arrayBuffer, 28, dayArrays.totalCells);
-                const surfaceLatArray = new Float32Array(arrayBuffer, 28 + (dayArrays.totalCells * 4), dayArrays.totalCells);
-                this.buildSpatialIndex(surfaceLonArray, surfaceLatArray, dayArrays.nLat, dayArrays.nLon);
+                // Build spatial index using surface layer
+                this.buildSpatialIndex(dayData.lonArray, dayData.latArray, dayData.nLat, dayData.nLon);
             }
 
-            dayArrays.arrayBuffer = arrayBuffer; // Keep reference to prevent GC
-            dayArrays.loadTime = loadTime;
-
-            return dayArrays;
+            return dayData;
 
         } catch (error) {
             console.error(`❌ Failed to load day ${dateKey}:`, error);
@@ -169,7 +182,8 @@ class StreamingHYCOMLoader_3D {
         }
     }
 
-    _parseVersion4(view, arrayBuffer, dateKey) {
+    _parseVersion4(arrayBuffer, dateKey) {
+        const view = new DataView(arrayBuffer);
         const nLat = view.getInt32(4, true);
         const nLon = view.getInt32(8, true);
         const nDepth = view.getInt32(12, true);
@@ -183,11 +197,23 @@ class StreamingHYCOMLoader_3D {
         const headerSize = 28; // 7 ints = 28 bytes for version 4
         const dataStart = headerSize;
 
+        // COPY arrays instead of using views to allow original buffer to be GC'd
+        const lonArray = new Float32Array(totalCells);
+        const latArray = new Float32Array(totalCells);
+        const uArray = new Float32Array(totalDataPoints);
+        const vArray = new Float32Array(totalDataPoints);
+
+        // Copy from source views
+        lonArray.set(new Float32Array(arrayBuffer, dataStart, totalCells));
+        latArray.set(new Float32Array(arrayBuffer, dataStart + (totalCells * 4), totalCells));
+        uArray.set(new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4), totalDataPoints));
+        vArray.set(new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4 + totalDataPoints * 4), totalDataPoints));
+
         return {
-            lonArray: new Float32Array(arrayBuffer, dataStart, totalCells),
-            latArray: new Float32Array(arrayBuffer, dataStart + (totalCells * 4), totalCells),
-            uArray: new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4), totalDataPoints),
-            vArray: new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4 + totalDataPoints * 4), totalDataPoints),
+            lonArray,
+            latArray,
+            uArray,
+            vArray,
             nLat,
             nLon,
             nDepth,
@@ -196,12 +222,12 @@ class StreamingHYCOMLoader_3D {
             year: fileYear,
             month: fileMonth,
             day: fileDay,
-            dateKey,
             depths: this.metadata?.depths || [0, 50, 100, 200, 500, 1000]
         };
     }
 
-    _parseVersion3(view, arrayBuffer, dateKey) {
+    _parseVersion3(arrayBuffer, dateKey) {
+        const view = new DataView(arrayBuffer);
         const nLat = view.getInt32(4, true);
         const nLon = view.getInt32(8, true);
         const fileYear = view.getInt32(12, true);
@@ -213,11 +239,22 @@ class StreamingHYCOMLoader_3D {
         const headerSize = 24; // 6 ints = 24 bytes for version 3
         const dataStart = headerSize;
 
+        // COPY arrays instead of using views
+        const lonArray = new Float32Array(totalCells);
+        const latArray = new Float32Array(totalCells);
+        const uArray = new Float32Array(totalCells);
+        const vArray = new Float32Array(totalCells);
+
+        lonArray.set(new Float32Array(arrayBuffer, dataStart, totalCells));
+        latArray.set(new Float32Array(arrayBuffer, dataStart + (totalCells * 4), totalCells));
+        uArray.set(new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4), totalCells));
+        vArray.set(new Float32Array(arrayBuffer, dataStart + (3 * totalCells * 4), totalCells));
+
         return {
-            lonArray: new Float32Array(arrayBuffer, dataStart, totalCells),
-            latArray: new Float32Array(arrayBuffer, dataStart + (totalCells * 4), totalCells),
-            uArray: new Float32Array(arrayBuffer, dataStart + (2 * totalCells * 4), totalCells),
-            vArray: new Float32Array(arrayBuffer, dataStart + (3 * totalCells * 4), totalCells),
+            lonArray,
+            latArray,
+            uArray,
+            vArray,
             nLat,
             nLon,
             nDepth: 1,
@@ -226,15 +263,139 @@ class StreamingHYCOMLoader_3D {
             year: fileYear,
             month: fileMonth,
             day: fileDay,
-            dateKey
+            depths: [0] // Surface only
         };
+    }
+
+    // ==================== MEMORY MANAGEMENT ====================
+
+    /**
+     * Enforce memory limit - keep only the most recent days
+     * @private
+     */
+    _enforceMemoryLimit() {
+        if (this.loadedDays.size <= this.maxDaysInMemory) return;
+
+        console.log(`🧹 Enforcing memory limit: ${this.loadedDays.size} days > ${this.maxDaysInMemory}`);
+
+        // Get all keys and sort chronologically
+        const keys = Array.from(this.loadedDays.keys());
+        keys.sort(); // YYYY-MM-DD format sorts naturally chronologically
+
+        // Determine which keys to remove (oldest first)
+        const toRemove = keys.slice(0, keys.length - this.maxDaysInMemory);
+
+        let removedCount = 0;
+        let freedBytes = 0;
+
+        toRemove.forEach(dateKey => {
+            // Never remove the active day
+            if (dateKey !== this.activeDayKey) {
+                const dayData = this.loadedDays.get(dateKey);
+
+                // Calculate size before removal
+                if (dayData) {
+                    freedBytes += this._calculateDaySize(dayData);
+
+                    // AGGRESSIVELY nullify all large arrays
+                    dayData.lonArray = null;
+                    dayData.latArray = null;
+                    dayData.uArray = null;
+                    dayData.vArray = null;
+                }
+
+                // Remove from cache
+                this.loadedDays.delete(dateKey);
+                removedCount++;
+            }
+        });
+
+        if (removedCount > 0) {
+            console.log(`🗑️ Unloaded ${removedCount} days, freed ~${(freedBytes / 1024 / 1024).toFixed(1)}MB`);
+            console.log(`   Cache now has ${this.loadedDays.size} days`);
+
+            // Hint to garbage collector
+            if (window.gc) {
+                setTimeout(() => window.gc(), 100);
+            }
+        }
+    }
+
+    /**
+     * Calculate approximate size of a day's data in bytes
+     * @private
+     */
+    _calculateDaySize(dayData) {
+        if (!dayData) return 0;
+        let size = 0;
+        if (dayData.lonArray) size += dayData.lonArray.byteLength;
+        if (dayData.latArray) size += dayData.latArray.byteLength;
+        if (dayData.uArray) size += dayData.uArray.byteLength;
+        if (dayData.vArray) size += dayData.vArray.byteLength;
+        return size;
+    }
+
+    /**
+     * Set maximum days to keep in memory
+     * @param {number} maxDays - Maximum number of days to keep (default: 2)
+     */
+    setMaxDaysInMemory(maxDays = 2) {
+        if (maxDays < 1) maxDays = 1;
+        this.maxDaysInMemory = maxDays;
+        console.log(`📏 Max days in memory set to ${maxDays}`);
+        this._enforceMemoryLimit();
+    }
+
+    /**
+     * Manually unload a specific day
+     * @param {string} dateKey - Date key in YYYY-MM-DD format
+     */
+    unloadDay(dateKey) {
+        if (this.loadedDays.has(dateKey) && dateKey !== this.activeDayKey) {
+            const dayData = this.loadedDays.get(dateKey);
+
+            // Nullify arrays before deleting
+            if (dayData) {
+                dayData.lonArray = null;
+                dayData.latArray = null;
+                dayData.uArray = null;
+                dayData.vArray = null;
+            }
+
+            this.loadedDays.delete(dateKey);
+            console.log(`🗑️ Manually unloaded day ${dateKey}`);
+        } else if (dateKey === this.activeDayKey) {
+            console.warn(`⚠️ Cannot unload active day: ${dateKey}`);
+        }
+    }
+
+    /**
+     * Clear all loaded days except active
+     */
+    clearAllExceptActive() {
+        console.log('🧹 Clearing all days except active...');
+        const keys = Array.from(this.loadedDays.keys());
+
+        keys.forEach(dateKey => {
+            if (dateKey !== this.activeDayKey) {
+                const dayData = this.loadedDays.get(dateKey);
+                if (dayData) {
+                    dayData.lonArray = null;
+                    dayData.latArray = null;
+                    dayData.uArray = null;
+                    dayData.vArray = null;
+                }
+                this.loadedDays.delete(dateKey);
+            }
+        });
+
+        console.log(`✅ Kept only active day (${this.activeDayKey}), ${this.loadedDays.size} total`);
     }
 
     // ==================== DEPTH MANAGEMENT ====================
 
     getDepthIndex(targetDepth) {
         if (!this.metadata?.depths || this.metadata.depths.length === 0) {
-            console.warn('No depths metadata available, using surface');
             return 0;
         }
 
@@ -254,11 +415,6 @@ class StreamingHYCOMLoader_3D {
                 minDiff = diff;
                 closestIndex = i;
             }
-        }
-
-        // Warn if interpolation might be needed
-        if (minDiff > 0) {
-            console.log(`⚠️ Depth ${targetDepth}m not available, using ${depths[closestIndex]}m (diff: ${minDiff}m)`);
         }
 
         return closestIndex;
@@ -320,7 +476,6 @@ class StreamingHYCOMLoader_3D {
 
         // Check bounds
         if (idx >= dayData.totalDataPoints) {
-            console.warn(`Index out of bounds: ${idx} >= ${dayData.totalDataPoints}`);
             return { u: 0, v: 0, found: false };
         }
 
@@ -333,7 +488,6 @@ class StreamingHYCOMLoader_3D {
             u: isOcean ? u : 0,
             v: isOcean ? v : 0,
             found: isOcean,
-            cached: false,
             depth: targetDepth,
             actualDepth: this.getDepthValue(depthIndex),
             depthIndex,
@@ -432,7 +586,7 @@ class StreamingHYCOMLoader_3D {
             if (!isNaN(u) && !isNaN(v)) {
                 const depth = this.getDepthValue(depthIndex);
                 const speed = Math.sqrt(u * u + v * v);
-                const direction = Math.atan2(v, u) * (180 / Math.PI); // Degrees from east
+                const direction = Math.atan2(v, u) * (180 / Math.PI);
 
                 profile.depths.push(depth);
                 profile.uValues.push(u);
@@ -489,7 +643,6 @@ class StreamingHYCOMLoader_3D {
 
     findNearestCell(lon, lat, dayData) {
         if (!this.spatialGrid || !this.gridBounds) {
-            console.warn('Spatial index not built, performing linear search');
             return this.findNearestCellLinear(lon, lat, dayData);
         }
 
@@ -557,30 +710,6 @@ class StreamingHYCOMLoader_3D {
         return bestCell;
     }
 
-    // ==================== MEMORY MANAGEMENT ====================
-
-    setMaxDaysInMemory(maxDays = 3) {
-        if (this.loadedDays.size > maxDays) {
-            const keys = Array.from(this.loadedDays.keys());
-            const toRemove = keys.slice(0, keys.length - maxDays);
-
-            toRemove.forEach(dateKey => {
-                if (dateKey !== this.activeDayKey) {
-                    this.loadedDays.delete(dateKey);
-                }
-            });
-
-            console.log(`🗑️ Kept ${maxDays} days in memory (3D data is larger)`);
-        }
-    }
-
-    unloadDay(dateKey) {
-        if (this.loadedDays.has(dateKey) && dateKey !== this.activeDayKey) {
-            this.loadedDays.delete(dateKey);
-            console.log(`🗑️ Unloaded day ${dateKey}`);
-        }
-    }
-
     // ==================== PRELOADING ====================
 
     async preloadAdjacentDays(simulationDay) {
@@ -601,7 +730,7 @@ class StreamingHYCOMLoader_3D {
         }));
     }
 
-    // ==================== LAND MASK METHODS (3D) ====================
+    // ==================== LAND MASK METHODS ====================
 
     async getLandMask(depth = 0, simulationDay = 0) {
         const depthIndex = this.getDepthIndex(depth);
@@ -614,7 +743,7 @@ class StreamingHYCOMLoader_3D {
         for (let i = 0; i < nLat; i++) {
             for (let j = 0; j < nLon; j++) {
                 const idx = (depthIndex * dayData.totalCells) + (i * nLon + j);
-                mask[i][j] = !isNaN(dayData.uArray[idx]);
+                mask[i][j] = !isNaN(dayData.uArray[idx]) && Math.abs(dayData.uArray[idx]) < 1000;
             }
         }
 
@@ -642,13 +771,10 @@ class StreamingHYCOMLoader_3D {
             const idx = (depthIndex * dayData.totalCells) + cell.idx;
             const u = dayData.uArray[idx];
 
-            // 🟢 FIX: -9999 is NOT ocean
-            if (Math.abs(u) > 1000) return false;
-
-            return !isNaN(u);
+            // Check if valid ocean (not NaN and not land value)
+            return !isNaN(u) && Math.abs(u) < 1000;
 
         } catch (error) {
-            console.warn('Land mask check failed:', error);
             return false;
         }
     }
@@ -664,7 +790,7 @@ class StreamingHYCOMLoader_3D {
         // Check if exact cell is ocean at specified depth
         if (exactCell) {
             const exactIdx = (depthIndex * dayData.totalCells) + exactCell.idx;
-            if (!isNaN(uArray[exactIdx])) {
+            if (!isNaN(uArray[exactIdx]) && Math.abs(uArray[exactIdx]) < 1000) {
                 return {
                     ...exactCell,
                     lon: lonArray[exactCell.idx],
@@ -688,7 +814,7 @@ class StreamingHYCOMLoader_3D {
 
                     if (i >= 0 && i < nLat && j >= 0 && j < nLon) {
                         const idx = (depthIndex * dayData.totalCells) + (i * nLon + j);
-                        if (!isNaN(uArray[idx])) {
+                        if (!isNaN(uArray[idx]) && Math.abs(uArray[idx]) < 1000) {
                             return {
                                 i, j,
                                 idx: i * nLon + j,
@@ -718,6 +844,7 @@ class StreamingHYCOMLoader_3D {
             memoryUsage: this.calculateMemoryUsage(),
             activeDay: this.activeDayKey,
             defaultDepth: this.defaultDepth,
+            maxDaysInMemory: this.maxDaysInMemory,
             dateRange: this.metadata ? {
                 first: this.metadata.days[0].date_str,
                 last: this.metadata.days[this.metadata.days.length - 1].date_str
@@ -728,7 +855,7 @@ class StreamingHYCOMLoader_3D {
     calculateMemoryUsage() {
         let totalBytes = 0;
         for (const dayData of this.loadedDays.values()) {
-            totalBytes += dayData.arrayBuffer.byteLength;
+            totalBytes += this._calculateDaySize(dayData);
         }
         return `${(totalBytes / (1024**2)).toFixed(1)}MB`;
     }

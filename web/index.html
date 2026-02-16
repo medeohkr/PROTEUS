@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fukushima Plume Simulator - 3D Physics</title>
+    <title>Pacific Ocean Transport Simulator - 3D Physics</title>
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -36,7 +36,7 @@
 
         /* Sidebar */
         #sidebar {
-            width: 360px;
+            width: 380px;
             background: rgba(15, 30, 45, 0.95);
             backdrop-filter: blur(10px);
             border-right: 1px solid rgba(79, 195, 247, 0.2);
@@ -47,41 +47,61 @@
         }
 
         .sidebar-header {
-            padding: 25px;
+            padding: 20px;
             border-bottom: 1px solid rgba(79, 195, 247, 0.2);
             background: linear-gradient(135deg, rgba(10, 25, 41, 0.9), rgba(15, 30, 45, 0.9));
         }
 
         .sidebar-header h1 {
-            font-size: 24px;
+            font-size: 22px;
             color: #4fc3f7;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .sidebar-header h1 i {
-            font-size: 28px;
+            font-size: 24px;
         }
 
         .subtitle {
-            font-size: 14px;
+            font-size: 12px;
             color: #b0bec5;
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
         /* Controls Section */
         #simulation-controls {
-            padding: 25px;
+            padding: 20px;
             flex-grow: 1;
             overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(79, 195, 247, 0.3) rgba(10, 25, 41, 0.5);
+        }
+
+        #simulation-controls::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-thumb {
+            background: rgba(79, 195, 247, 0.3);
+            border-radius: 3px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-thumb:hover {
+            background: rgba(79, 195, 247, 0.5);
         }
 
         .control-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .control-group:last-child {
@@ -90,75 +110,87 @@
 
         .control-group label {
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: #b0bec5;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
+            letter-spacing: 0.3px;
         }
 
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .slider-container input[type="range"] {
-            flex-grow: 1;
+        /* Unified Slider Styling */
+        .slider {
+            width: 100%;
             height: 6px;
-            -webkit-appearance: none;
-            background: rgba(79, 195, 247, 0.2);
+            background: rgba(79, 195, 247, 0.15);
             border-radius: 3px;
             outline: none;
+            -webkit-appearance: none;
         }
 
-        .slider-container input[type="range"]::-webkit-slider-thumb {
+        .slider::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             background: #4fc3f7;
             border-radius: 50%;
             cursor: pointer;
             border: 2px solid #0a1929;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #7eD6FF;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            color: #78909c;
+            font-size: 10px;
+            font-weight: 400;
         }
 
         .slider-value {
-            min-width: 60px;
-            padding: 6px 12px;
-            background: rgba(79, 195, 247, 0.1);
-            border-radius: 4px;
-            text-align: center;
+            background: rgba(79, 195, 247, 0.12);
+            padding: 4px 12px;
+            border-radius: 20px;
             font-family: 'Courier New', monospace;
-            font-size: 14px;
+            font-size: 12px;
             color: #4fc3f7;
             border: 1px solid rgba(79, 195, 247, 0.3);
+            font-weight: 500;
         }
 
         .button-group {
             display: flex;
-            gap: 12px;
-            margin-top: 15px;
+            gap: 10px;
+            margin-top: 10px;
         }
 
         .btn {
-            flex: 1;
-            padding: 12px 20px;
+            padding: 10px 16px;
             border: none;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
+            background: rgba(20, 40, 60, 0.8);
+            color: #b0bec5;
+            border: 1px solid rgba(79, 195, 247, 0.2);
         }
 
         .btn-primary {
             background: linear-gradient(135deg, #4fc3f7, #2979ff);
             color: white;
+            border: none;
         }
 
         .btn-primary:hover {
@@ -170,6 +202,7 @@
         .btn-secondary {
             background: linear-gradient(135deg, #ff6b6b, #ff4757);
             color: white;
+            border: none;
         }
 
         .btn-secondary:hover {
@@ -178,28 +211,109 @@
             box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
         }
 
-        /* Stats Section */
-        #simulation-stats {
-            padding: 20px;
+        .btn.active {
+            background: linear-gradient(135deg, #4fc3f7, #2979ff);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(79, 195, 247, 0.15);
+            transition: .3s;
+            border-radius: 34px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 2px;
+            background-color: #4fc3f7;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: rgba(79, 195, 247, 0.3);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(10, 25, 41, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(79, 195, 247, 0.15);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #b0bec5;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fc3f7, #2979ff);
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        /* Stats Display */
+        .stats-panel {
             background: rgba(10, 25, 41, 0.7);
             border-radius: 8px;
-            margin-top: 20px;
+            padding: 15px;
+            margin-top: 15px;
             border: 1px solid rgba(79, 195, 247, 0.2);
         }
 
-        #simulation-stats div {
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 14px;
+        .stats-panel div {
             display: flex;
             justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
         }
 
-        #simulation-stats div:last-child {
+        .stats-panel div:last-child {
             margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
         }
 
         .stat-label {
@@ -215,17 +329,17 @@
         /* Time Display */
         .time-display {
             background: rgba(10, 25, 41, 0.7);
-            padding: 15px;
+            padding: 12px 15px;
             border-radius: 8px;
-            margin-top: 20px;
+            margin: 15px 0;
             border: 1px solid rgba(79, 195, 247, 0.2);
         }
 
         .time-display div {
-            font-size: 14px;
-            margin-bottom: 8px;
             display: flex;
             justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 5px;
         }
 
         .time-display div:last-child {
@@ -253,7 +367,6 @@
             height: 100%;
         }
 
-        /* Deck.gl Overlay */
         #deckgl-overlay {
             position: absolute;
             top: 0;
@@ -267,33 +380,32 @@
         /* Legend */
         .map-legend {
             position: absolute;
-            bottom: 30px;
+            bottom: 25px;
             right: 20px;
             background: rgba(10, 25, 41, 0.95);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 12px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
             z-index: 1000;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(79, 195, 247, 0.3);
-            max-width: 220px;
+            width: 200px;
             backdrop-filter: blur(10px);
         }
 
         .map-legend h4 {
-            margin: 0 0 15px 0;
-            font-size: 15px;
+            margin: 0 0 10px 0;
+            font-size: 13px;
             color: #4fc3f7;
             text-align: center;
         }
 
         .legend-gradient {
-            height: 180px;
-            width: 25px;
-            margin: 0 auto 15px;
-            border-radius: 4px;
+            height: 150px;
+            width: 20px;
+            margin: 0 auto 10px;
+            border-radius: 3px;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
@@ -301,20 +413,19 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            height: 180px;
-            margin-left: 35px;
-            margin-top: -195px;
+            height: 150px;
+            margin-left: 30px;
+            margin-top: -160px;
         }
 
         .legend-labels span {
-            font-size: 11px;
+            font-size: 10px;
             color: #b0bec5;
-            font-family: 'Courier New', monospace;
         }
 
         .legend-note {
-            margin-top: 15px;
-            font-size: 10px;
+            margin-top: 10px;
+            font-size: 9px;
             color: #78909c;
             text-align: center;
             font-style: italic;
@@ -322,10 +433,10 @@
 
         /* Footer */
         .sidebar-footer {
-            padding: 20px;
+            padding: 15px;
             border-top: 1px solid rgba(79, 195, 247, 0.2);
             background: rgba(10, 25, 41, 0.8);
-            font-size: 12px;
+            font-size: 11px;
             color: #78909c;
             text-align: center;
         }
@@ -333,19 +444,16 @@
         .sidebar-footer a {
             color: #4fc3f7;
             text-decoration: none;
-            transition: color 0.3s;
         }
 
         .sidebar-footer a:hover {
             color: #ff6b6b;
-            text-decoration: underline;
         }
-
 
         /* Responsive */
         @media (max-width: 1200px) {
             #sidebar {
-                width: 320px;
+                width: 340px;
             }
         }
 
@@ -353,90 +461,13 @@
             #app {
                 flex-direction: column;
             }
-
             #sidebar {
                 width: 100%;
-                height: 40vh;
+                height: 45vh;
             }
-
             #map-container {
-                height: 60vh;
+                height: 55vh;
             }
-        }
-
-        /* Scrollbar Styling */
-        #simulation-controls::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        #simulation-controls::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 3px;
-        }
-
-        #simulation-controls::-webkit-scrollbar-thumb {
-            background: rgba(79, 195, 247, 0.3);
-            border-radius: 3px;
-        }
-
-        #simulation-controls::-webkit-scrollbar-thumb:hover {
-            background: rgba(79, 195, 247, 0.5);
-        }
-        /* Toggle switch styling */
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(79, 195, 247, 0.2);
-            transition: .4s;
-            border-radius: 34px;
-            border: 1px solid rgba(79, 195, 247, 0.3);
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 3px;
-            background-color: #4fc3f7;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        .toggle-switch input:checked + .toggle-slider {
-            background-color: rgba(79, 195, 247, 0.4);
-        }
-
-        .toggle-switch input:checked + .toggle-slider:before {
-            transform: translateX(26px);
-        }
-        /* Add to your CSS in index.html */
-        .particle-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 400;
         }
     </style>
 </head>
@@ -445,119 +476,274 @@
         <!-- Sidebar -->
         <div id="sidebar">
             <div class="sidebar-header">
-                <h1><i class="fas fa-radiation-alt"></i> Fukushima Plume Simulator</h1>
+                <h1><i class="fas fa-water"></i> Pacific Transport Simulator</h1>
                 <p class="subtitle">
-                    3D Physics Simulation of Cs-137 dispersion in the Pacific Ocean
-                    using HYCOM currents and EKE-driven turbulent diffusion
+                    3D Lagrangian particle tracking with HYCOM currents, EKE diffusion, and depth-resolved visualization
                 </p>
             </div>
 
             <div id="simulation-controls">
-                <!-- Physics Controls -->
-                <div class="control-group">
-                    <label><i class="fas fa-wind"></i> Turbulent Diffusion Scale</label>
-                    <div class="slider-container">
-                        <input type="range" id="diffusionSlider" min="0" max="2" step="0.1" value="1.0">
-                        <span id="diffusionValue" class="slider-value">1.0</span>
-                    </div>
-                    <small style="color: #78909c; display: block; margin-top: 8px;">
-                        0 = Pure HYCOM advection, 1 = Realistic EKE diffusion
-                    </small>
-                </div>
-
-                <div class="control-group">
-                    <label><i class="fas fa-tachometer-alt"></i> Simulation Speed</label>
-                    <div class="slider-container">
-                        <input type="range" id="speedSlider" min="0.1" max="10" step="0.1" value="1.0">
-                        <span id="speedValue" class="slider-value">1.0</span>
-                    </div>
-                    <small style="color: #78909c; display: block; margin-top: 8px;">
-                        1.0 = Real-time, 10.0 = 10× faster
-                    </small>
-                </div>
-
-                <!-- Control Buttons -->
-                <div class="control-group">
-                    <label><i class="fas fa-play-circle"></i> Simulation Controls</label>
+                <!-- ===== MODE SELECTION ===== -->
+                <div class="control-group" style="border-bottom: 2px solid rgba(79, 195, 247, 0.25);">
+                    <label><i class="fas fa-cog"></i> SIMULATION MODE</label>
                     <div class="button-group">
-                        <button id="startBtn" class="btn btn-primary">
-                            <i class="fas fa-play"></i> Start Simulation
+                        <button id="btn-pre-render" class="btn active">
+                            <i class="fas fa-database"></i> Pre-Render
                         </button>
-                        <button id="resetBtn" class="btn btn-secondary">
-                            <i class="fas fa-redo"></i> Reset
+                        <button id="btn-realtime" class="btn">
+                            <i class="fas fa-bolt"></i> Real-Time
                         </button>
                     </div>
                 </div>
-
-                <!-- Visualization Mode -->
-                <div class="control-group">
-                    <label><i class="fas fa-eye"></i> Visualization Mode</label>
+                <!-- ===== VISUALIZATION TYPE TOGGLE ===== -->
+                <div class="control-group" style="border-bottom: 2px solid rgba(79, 195, 247, 0.25);">
+                    <label><i class="fas fa-eye"></i> VISUALIZATION</label>
                     <div class="button-group">
                         <button id="btn-concentration" class="btn active">
-                            <i class="fas fa-heatmap"></i> Concentration
+                            <i class="fas fa-fire"></i> Concentration
                         </button>
                         <button id="btn-particles" class="btn">
                             <i class="fas fa-dot-circle"></i> Particles
                         </button>
                     </div>
-                    <small style="color: #78909c; display: block; margin-top: 8px;">
-                        Concentration: Bq/m³ heatmap | Particles: Individual trails
-                    </small>
                 </div>
-                                <!-- Add after visualization mode buttons -->
-                <div class="control-group">
-                    <label><i class="fas fa-stream"></i> Particle Trails</label>
-                    <div class="toggle-container" style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
-                        <span style="font-size: 14px; color: #b0bec5;">Show particle trails</span>
+
+                <!-- ===== PRE-RENDER CONTROLS ===== -->
+                <div id="prender-controls">
+                    <!-- Particle Count -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-cubes"></i> PARTICLE COUNT</label>
+                            <span id="pr-particles-value" class="slider-value">5,000</span>
+                        </div>
+                        <input type="range" id="pr-particles" class="slider" min="100" max="50000" step="100" value="5000">
+                        <div class="slider-labels">
+                            <span>100</span>
+                            <span>50,000</span>
+                        </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-calendar-alt"></i> DURATION</label>
+                            <span id="pr-duration-value" class="slider-value">180 days</span>
+                        </div>
+                        <input type="range" id="pr-duration" class="slider" min="30" max="730" step="10" value="180">
+                        <div class="slider-labels">
+                            <span>30 days</span>
+                            <span>2 years</span>
+                        </div>
+                    </div>
+
+                    <!-- Snapshot Interval -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-clock"></i> SNAPSHOT INTERVAL</label>
+                            <span id="pr-interval-value" class="slider-value">7 days</span>
+                        </div>
+                        <input type="range" id="pr-interval" class="slider" min="1" max="30" step="1" value="7">
+                        <div class="slider-labels">
+                            <span>Daily</span>
+                            <span>Monthly</span>
+                        </div>
+                    </div>
+
+                    <!-- EKE Diffusivity -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-water"></i> EKE DIFFUSIVITY</label>
+                            <span id="pr-eke-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="pr-eke" class="slider" min="0" max="3" step="0.1" value="1.0">
+                        <div class="slider-labels">
+                            <span>Pure advection</span>
+                            <span>Extreme</span>
+                        </div>
+                    </div>
+
+                    <!-- RK4 Toggle -->
+                    <div class="control-group" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px;">
+                        <label style="margin-bottom: 0;"><i class="fas fa-chart-line"></i> RK4 INTEGRATION</label>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="trailsToggle" checked>
+                            <input type="checkbox" id="pr-rk4" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
+
+                    <!-- Start Button -->
+                    <button id="btn-start-prerender" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-fire"></i> START PRE-RENDER
+                    </button>
+
+                    <!-- Progress Bar -->
+                    <div id="pr-progress" class="progress-container" style="display: none;">
+                        <div class="progress-header">
+                            <span id="pr-progress-message">Initializing...</span>
+                            <span id="pr-progress-percent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="pr-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
                 </div>
 
+                <!-- ===== REALTIME CONTROLS ===== -->
+                <div id="realtime-controls" style="display: none;">
+                    <!-- Particle Count -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-cubes"></i> PARTICLE COUNT</label>
+                            <span id="rt-particles-value" class="slider-value">5,000</span>
+                        </div>
+                        <input type="range" id="rt-particles" class="slider" min="100" max="20000" step="100" value="5000">
+                        <div class="slider-labels">
+                            <span>100</span>
+                            <span>20,000</span>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Speed -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-tachometer-alt"></i> SIMULATION SPEED</label>
+                            <span id="rt-speed-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="rt-speed" class="slider" min="0.1" max="10" step="0.1" value="1.0">
+                        <div class="slider-labels">
+                            <span>0.1x Slow</span>
+                            <span>10x Fast</span>
+                        </div>
+                    </div>
+
+                    <!-- EKE Diffusivity -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-water"></i> EKE DIFFUSIVITY</label>
+                            <span id="rt-eke-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="rt-eke" class="slider" min="0" max="3" step="0.1" value="1.0">
+                        <div class="slider-labels">
+                            <span>Pure advection</span>
+                            <span>Extreme</span>
+                        </div>
+                    </div>
+
+                    <!-- RK4 Toggle -->
+                    <div class="control-group" style="display: flex; align-items: center; justify-content: space-between;">
+                        <label style="margin-bottom: 0;"><i class="fas fa-chart-line"></i> RK4 INTEGRATION</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="rt-rk4" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="button-group">
+                        <button id="rt-start" class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-play"></i> START
+                        </button>
+                        <button id="rt-reset" class="btn btn-secondary" style="flex: 1;">
+                            <i class="fas fa-redo"></i> RESET
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ===== PLAYBACK CONTROLS ===== -->
+                <div id="playback-controls" style="display: none;">
+                    <!-- Play/Pause -->
+                    <div class="button-group" style="margin-bottom: 15px;">
+                        <button id="playback-play" class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-play"></i> PLAY
+                        </button>
+                        <button id="playback-pause" class="btn btn-secondary" style="flex: 1;">
+                            <i class="fas fa-pause"></i> PAUSE
+                        </button>
+                    </div>
+
+                    <!-- Playback Speed -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-tachometer-alt"></i> PLAYBACK SPEED</label>
+                            <span id="playback-speed-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="playback-speed" class="slider" min="0.1" max="10" step="0.1" value="1.0">
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-sliders-h"></i> TIMELINE</label>
+                            <span id="playback-date-current" class="slider-value">Day 0</span>
+                        </div>
+                        <input type="range" id="playback-timeline" class="slider" min="0" value="0" step="0.1">
+                        <div class="slider-labels">
+                            <span id="playback-date-start">Day 0</span>
+                            <span id="playback-date-end">Day 180</span>
+                        </div>
+                    </div>
+
+                    <!-- DEPTH SLIDER - Signature Feature -->
+                    <div class="control-group" style="border-bottom: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-arrows-alt-v"></i> DEPTH LAYER</label>
+                            <span id="depth-value" class="slider-value">Surface (0m)</span>
+                        </div>
+                        <input type="range" id="depth-slider" class="slider" min="0" max="5" step="1" value="0">
+                        <div class="slider-labels">
+                            <span>0m</span>
+                            <span>50m</span>
+                            <span>100m</span>
+                            <span>200m</span>
+                            <span>500m</span>
+                            <span>1000m</span>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Time Display -->
                 <div class="time-display">
                     <div>
                         <span class="time-label"><i class="far fa-calendar-alt"></i> Simulation Day:</span>
-                        <span id="simulation-day" class="time-value">Day 0.0</span>
+                        <span id="simulation-day" class="time-value">0.0</span>
                     </div>
                     <div>
-                        <span class="time-label"><i class="far fa-clock"></i> Date & Time:</span>
-                        <span id="simulation-date" class="time-value">2011-03-11 00:00</span>
+                        <span class="time-label"><i class="far fa-clock"></i> Date:</span>
+                        <span id="simulation-date" class="time-value">2011-03-11</span>
                     </div>
                 </div>
 
                 <!-- Statistics -->
-                <div id="simulation-stats">
+                <div id="simulation-stats" class="stats-panel">
                     <div>
                         <span class="stat-label">Active Particles:</span>
-                        <span class="stat-value">0</span>
+                        <span id="stats-active" class="stat-value">0</span>
                     </div>
                     <div>
                         <span class="stat-label">Total Released:</span>
-                        <span class="stat-value">0</span>
+                        <span id="stats-released" class="stat-value">0</span>
                     </div>
                     <div>
                         <span class="stat-label">Decayed:</span>
-                        <span class="stat-value">0</span>
+                        <span id="stats-decayed" class="stat-value">0</span>
                     </div>
                     <div>
-                        <span class="stat-label">Days Elapsed:</span>
-                        <span class="stat-value">0.0</span>
+                        <span class="stat-label">Max Depth:</span>
+                        <span id="stats-depth" class="stat-value">0m</span>
+                    </div>
+                    <div>
+                        <span class="stat-label">Max Conc:</span>
+                        <span id="stats-conc" class="stat-value">0 Bq/m³</span>
                     </div>
                 </div>
             </div>
 
             <div class="sidebar-footer">
                 <p>
-                    <i class="fas fa-info-circle"></i>
-                    Simulation based on HYCOM 2011-2013 ocean currents and AVISO EKE data
+                    <i class="fas fa-database"></i> HYCOM 2011-2013 · AVISO EKE · 16.2 PBq calibration
                 </p>
-                <p style="margin-top: 8px;">
-                    <i class="fas fa-code"></i>
-                    3D Physics with vertical mixing (Rypina et al. 2013)
+                <p style="margin-top: 5px;">
+                    <i class="fas fa-code"></i> Open source · 3D Lagrangian transport
                 </p>
             </div>
         </div>
@@ -568,14 +754,16 @@
             <canvas id="deckgl-overlay"></canvas>
         </div>
     </div>
+
+    <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
     <script src="https://unpkg.com/@deck.gl/aggregation-layers@8.9.35/dist.min.js"></script>
     <script src="https://unpkg.com/@deck.gl/layers@8.9.35/dist.min.js"></script>
-    <!-- Mapbox is optional since we're using Leaflet as base -->
     <script src="hycomLoader.js"></script>
     <script src="cmemsLoader.js"></script>
     <script src="particleEngine.js"></script>
+    <script src="bakeSystem.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

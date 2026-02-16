@@ -347,40 +347,84 @@ class ParticleEngine3D {
 
         const lon = this.FUKUSHIMA_LON + (p.x / this.LON_SCALE);
         const lat = this.FUKUSHIMA_LAT + (p.y / this.LAT_SCALE);
+        const depthMeters = p.depth * 1000;
 
         try {
-            const isOcean = await this.hycomLoader.isOcean(lon, lat, 0, currentSimDay);
+            // Check if current position is ocean
+            const isOcean = await this.hycomLoader.isOcean(lon, lat, depthMeters, currentSimDay);
 
             if (!isOcean) {
+                // 1. First try: revert to previous position
                 p.x = prevX;
                 p.y = prevY;
                 p.depth = prevDepth;
 
+                // 2. Second try: find nearest ocean cell
                 const oceanCell = await this.hycomLoader.findNearestOceanCell(
-                    lon, lat, 0, currentSimDay, this.landSettings.maxLandSearchRadius
+                    lon, lat, depthMeters, currentSimDay, this.landSettings.maxLandSearchRadius
                 );
 
                 if (oceanCell) {
-                    const dx = (oceanCell.lon - lon) * this.LON_SCALE;
-                    const dy = (oceanCell.lat - lat) * this.LAT_SCALE;
+                    // Calculate direction to ocean
+                    const targetX = (oceanCell.lon - this.FUKUSHIMA_LON) * this.LON_SCALE;
+                    const targetY = (oceanCell.lat - this.FUKUSHIMA_LAT) * this.LAT_SCALE;
+
+                    const dx = targetX - prevX;
+                    const dy = targetY - prevY;
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
                     if (dist > 0) {
-                        p.x += (dx / dist) * this.landSettings.coastalPushStrength;
-                        p.y += (dy / dist) * this.landSettings.coastalPushStrength;
+                        // Move partially toward ocean (50% of distance)
+                        const moveFraction = 0.5;
+                        p.x = prevX + dx * moveFraction;
+                        p.y = prevY + dy * moveFraction;
+
+                        // Also adjust depth toward surface
+                        if (oceanCell.actualDepth !== undefined) {
+                            p.depth = Math.min(p.depth, oceanCell.actualDepth / 1000 * 0.8);
+                        }
                     }
                 }
 
-                return true;
+                return true; // Particle was on land
             }
+
+            return false; // Particle is in ocean
+
         } catch (error) {
+            console.warn(`Land check failed for particle ${p.id}:`, error);
+            // On error, revert to previous position to be safe
             p.x = prevX;
             p.y = prevY;
             p.depth = prevDepth;
             return true;
         }
+    }
+        // Add this new method to ParticleEngine3D class
+    async _checkPathToOcean(startX, startY, endX, endY, depth, currentSimDay) {
+        const steps = 2; // Check 5 points along the path
+        const stepX = (endX - startX) / steps;
+        const stepY = (endY - startY) / steps;
 
-        return false;
+        for (let s = 1; s <= steps; s++) {
+            const testX = startX + stepX * s;
+            const testY = startY + stepY * s;
+
+            const testLon = this.FUKUSHIMA_LON + (testX / this.LON_SCALE);
+            const testLat = this.FUKUSHIMA_LAT + (testY / this.LAT_SCALE);
+
+            // Check if this point is ocean
+            const isOcean = await this.hycomLoader.isOcean(testLon, testLat, depth * 1000, currentSimDay);
+
+            if (!isOcean) {
+                // Found land along the path - return the last valid position
+                const safeX = startX + stepX * (s - 1);
+                const safeY = startY + stepY * (s - 1);
+                return { safe: false, lastValidX: safeX, lastValidY: safeY };
+            }
+        }
+
+        return { safe: true, lastValidX: endX, lastValidY: endY };
     }
 
     // ==================== DIFFUSION ====================
@@ -422,13 +466,6 @@ class ParticleEngine3D {
             // Apply movement
             p.x += dx;
             p.y += dy;
-
-            // Optional debug logging (remove or comment out for production)
-            if (p.id % 1000 === 0 || distance > 20) {
-                const newLon = this.FUKUSHIMA_LON + (p.x / this.LON_SCALE);
-                const newLat = this.FUKUSHIMA_LAT + (p.y / this.LAT_SCALE);
-                console.log(`🔬 Particle ${p.id}: K=${K_m2_s.toFixed(1)} m²/s, step=${stepScale_km.toFixed(2)} km, move=${distance.toFixed(1)} km`);
-            }
 
         } catch (error) {
             console.error(`❌ Diffusion error for particle ${p.id}:`, error);
@@ -534,25 +571,69 @@ class ParticleEngine3D {
                 // ===== 1. ADVECTION =====
                 if (this.rk4Enabled && this.rk4Settings.enabled) {
                     const rk4Result = await this.rk4Integrate(p, deltaDays, currentSimDay);
-                    p.x = rk4Result.x;
-                    p.y = rk4Result.y;
-                    p.depth = rk4Result.depth;
-                    p.velocityU = rk4Result.u_avg || 0;
-                    p.velocityV = rk4Result.v_avg || 0;
-                    p.lastIntegration = 'rk4';
+
+                    // Check if RK4 path is safe
+                    const pathCheck = await this._checkPathToOcean(
+                        prevX, prevY, rk4Result.x, rk4Result.y,
+                        p.depth, currentSimDay
+                    );
+
+                    if (pathCheck.safe) {
+                        p.x = rk4Result.x;
+                        p.y = rk4Result.y;
+                        p.depth = rk4Result.depth;
+                        p.velocityU = rk4Result.u_avg || 0;
+                        p.velocityV = rk4Result.v_avg || 0;
+                        p.lastIntegration = 'rk4';
+                    } else {
+                        // Stop at last valid position
+                        p.x = pathCheck.lastValidX;
+                        p.y = pathCheck.lastValidY;
+                        p.velocityU = 0;
+                        p.velocityV = 0;
+                    }
                 } else {
                     if (velocity.found) {
-                        p.velocityU = velocity.u;
-                        p.velocityV = velocity.v;
-                        p.x += velocity.u * 86.4 * deltaDays;
-                        p.y += velocity.v * 86.4 * deltaDays;
+                        const newX = p.x + velocity.u * 86.4 * deltaDays;
+                        const newY = p.y + velocity.v * 86.4 * deltaDays;
+
+                        // Check if path is safe
+                        const pathCheck = await this._checkPathToOcean(
+                            prevX, prevY, newX, newY, p.depth, currentSimDay
+                        );
+
+                        if (pathCheck.safe) {
+                            p.x = newX;
+                            p.y = newY;
+                            p.velocityU = velocity.u;
+                            p.velocityV = velocity.v;
+                        } else {
+                            p.x = pathCheck.lastValidX;
+                            p.y = pathCheck.lastValidY;
+                            p.velocityU = 0;
+                            p.velocityV = 0;
+                        }
                     }
                     p.lastIntegration = 'euler';
                 }
 
                 // ===== 2. DIFFUSION =====
                 if (this.ekeLoader && this.params.diffusivityScale > 0.01) {
+                    const beforeDiffX = p.x;
+                    const beforeDiffY = p.y;
+
                     await this.applyDiffusion(p, deltaDays, currentSimDay);
+
+                    // Check if diffusion path is safe
+                    const diffPathCheck = await this._checkPathToOcean(
+                        beforeDiffX, beforeDiffY, p.x, p.y, p.depth, currentSimDay
+                    );
+
+                    if (!diffPathCheck.safe) {
+                        // Revert to position before diffusion
+                        p.x = beforeDiffX;
+                        p.y = beforeDiffY;
+                    }
                 }
 
                 // ===== 3. LAND CHECK =====
@@ -873,14 +954,14 @@ class ParticleEngine3D {
             else depthBuckets.deep++;
         }
 
-        console.log(`📊 PLUME STATISTICS - Day ${this.stats.simulationDays.toFixed(1)}:`);
-        console.log(`   Active particles: ${activeParticles.length}`);
-        console.log(`   Mean distance: ${meanDistance.toFixed(1)} km`);
-        console.log(`   Max distance: ${maxDistance.toFixed(1)} km`);
-        console.log(`   Depth distribution: S:${depthBuckets.surface} U:${depthBuckets.upper} I:${depthBuckets.intermediate} D:${depthBuckets.deep}`);
-        console.log(`   Max depth: ${this.stats.maxDepthReached.toFixed(0)} m`);
-        console.log(`   On land: ${this.stats.particlesOnLand}`);
-        console.log(`   Max concentration: ${this.stats.maxConcentration.toExponential(2)} Bq/m³`);
+//        console.log(`📊 PLUME STATISTICS - Day ${this.stats.simulationDays.toFixed(1)}:`);
+//        console.log(`   Active particles: ${activeParticles.length}`);
+//        console.log(`   Mean distance: ${meanDistance.toFixed(1)} km`);
+//        console.log(`   Max distance: ${maxDistance.toFixed(1)} km`);
+//        console.log(`   Depth distribution: S:${depthBuckets.surface} U:${depthBuckets.upper} I:${depthBuckets.intermediate} D:${depthBuckets.deep}`);
+//        console.log(`   Max depth: ${this.stats.maxDepthReached.toFixed(0)} m`);
+//        console.log(`   On land: ${this.stats.particlesOnLand}`);
+//        console.log(`   Max concentration: ${this.stats.maxConcentration.toExponential(2)} Bq/m³`);
     }
 
     getStats() {

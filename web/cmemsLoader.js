@@ -275,7 +275,7 @@ class StreamingEKELoader {
         }
 
         const K = dayData.K[cell.idx]; // Direct float32 access
-        const validK = isNaN(K) || K < 20 ? 20.0 : Math.min(K, 500.0);
+        const validK = isNaN(K) || K < 20 ? 20.0 : Math.min(K, 3000.0);
 
         return {
             K: validK,
@@ -301,7 +301,7 @@ class StreamingEKELoader {
 
             if (cell) {
                 const K = dayData.K[cell.idx];
-                const validK = isNaN(K) || K < 20 ? 20.0 : Math.min(K, 500.0);
+                const validK = isNaN(K) || K < 20 ? 20.0 : Math.min(K, 3000.0);
                 results[k] = {
                     K: validK,
                     found: true,
@@ -335,16 +335,30 @@ class StreamingEKELoader {
 
     // ==================== MEMORY MANAGEMENT ====================
 
-    manageMemory(maxDays = 3) {
+    // Replace the manageMemory method:
+    manageMemory(maxDays = 2) {
         if (this.loadedDays.size > maxDays) {
             const keys = Array.from(this.loadedDays.keys());
             const toRemove = keys.slice(0, keys.length - maxDays);
 
             toRemove.forEach(dateKey => {
                 if (dateKey !== this.activeDate) {
+                    const dayData = this.loadedDays.get(dateKey);
+                    // Aggressively nullify all references
+                    if (dayData) {
+                        dayData.K = null;
+                        dayData.arrayBuffer = null;
+                        // If you have any other large properties
+                    }
                     this.loadedDays.delete(dateKey);
+                    console.log(`🗑️ Unloaded ${dateKey}`);
                 }
             });
+
+            // Force garbage collection hint (optional)
+            if (window.gc && toRemove.length > 0) {
+                setTimeout(() => window.gc && window.gc(), 100);
+            }
         }
     }
 
