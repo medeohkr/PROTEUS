@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROTEUS - Pacific Radionuclide Oceanic Transport Engine & Universal Simulator</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a1929 0%, #1a2b3c 100%);
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        #sidebar {
+            width: 380px;
+            background: rgba(15, 30, 45, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(79, 195, 247, 0.2);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.2);
+            background: linear-gradient(135deg, rgba(10, 25, 41, 0.9), rgba(15, 30, 45, 0.9));
+        }
+
+        .sidebar-header h1 {
+            font-size: 28px;
+            color: #4fc3f7;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-header h1 i {
+            font-size: 28px;
+            color: #ffd700;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #b0bec5;
+            line-height: 1.4;
+            font-style: italic;
+        }
+
+        .proteus-tagline {
+            font-size: 10px;
+            color: #4fc3f7;
+            margin-top: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Controls Section */
+        #simulation-controls {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(79, 195, 247, 0.3) rgba(10, 25, 41, 0.5);
+        }
+
+        #simulation-controls::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-thumb {
+            background: rgba(79, 195, 247, 0.3);
+            border-radius: 3px;
+        }
+
+        #simulation-controls::-webkit-scrollbar-thumb:hover {
+            background: rgba(79, 195, 247, 0.5);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .control-group:last-child {
+            border-bottom: none;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b0bec5;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        /* Universal Slider Styling */
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: rgba(79, 195, 247, 0.15);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4fc3f7;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #0a1929;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #7eD6FF;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            color: #78909c;
+            font-size: 10px;
+            font-weight: 400;
+        }
+
+        .slider-value {
+            background: rgba(79, 195, 247, 0.12);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #4fc3f7;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(20, 40, 60, 0.8);
+            color: #b0bec5;
+            border: 1px solid rgba(79, 195, 247, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4fc3f7, #2979ff);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2979ff, #4fc3f7);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(41, 121, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ff6b6b, #ff4757);
+            color: white;
+            border: none;
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #ff4757, #ff6b6b);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #4fc3f7, #2979ff);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(79, 195, 247, 0.15);
+            transition: .3s;
+            border-radius: 34px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 2px;
+            background-color: #4fc3f7;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: rgba(79, 195, 247, 0.3);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(10, 25, 41, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(79, 195, 247, 0.15);
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #b0bec5;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fc3f7, #2979ff);
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        /* Stats Display */
+        .stats-panel {
+            background: rgba(10, 25, 41, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(79, 195, 247, 0.2);
+        }
+
+        .stats-panel div {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .stats-panel div:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-label {
+            color: #b0bec5;
+        }
+
+        .stat-value {
+            color: #4fc3f7;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Time Display */
+        .time-display {
+            background: rgba(10, 25, 41, 0.7);
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid rgba(79, 195, 247, 0.2);
+        }
+
+        .time-display div {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .time-display div:last-child {
+            margin-bottom: 0;
+        }
+
+        .time-label {
+            color: #b0bec5;
+        }
+
+        .time-value {
+            color: #4fc3f7;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Map Container */
+        #map-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        #deckgl-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 500;
+        }
+
+        /* Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 25px;
+            right: 20px;
+            background: rgba(10, 25, 41, 0.95);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 11px;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            width: 200px;
+            backdrop-filter: blur(10px);
+        }
+
+        .map-legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: #4fc3f7;
+            text-align: center;
+        }
+
+        .legend-gradient {
+            height: 150px;
+            width: 20px;
+            margin: 0 auto 10px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .legend-labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 150px;
+            margin-left: 30px;
+            margin-top: -160px;
+        }
+
+        .legend-labels span {
+            font-size: 10px;
+            color: #b0bec5;
+        }
+
+        .legend-note {
+            margin-top: 10px;
+            font-size: 9px;
+            color: #78909c;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Footer */
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid rgba(79, 195, 247, 0.2);
+            background: rgba(10, 25, 41, 0.8);
+            font-size: 11px;
+            color: #78909c;
+            text-align: center;
+        }
+
+        .sidebar-footer a {
+            color: #4fc3f7;
+            text-decoration: none;
+        }
+
+        .sidebar-footer a:hover {
+            color: #ff6b6b;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            #sidebar {
+                width: 340px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #app {
+                flex-direction: column;
+            }
+            #sidebar {
+                width: 100%;
+                height: 45vh;
+            }
+            #map-container {
+                height: 55vh;
+            }
+        }
+        /* Location Picker Styles */
+        #location-lat, #location-lon {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        #location-lat:focus, #location-lon:focus {
+            outline: none;
+            border-color: #4fc3f7;
+            box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.2);
+        }
+
+        .map-click-active {
+            cursor: crosshair !important;
+        }
+
+        .location-marker-pulse {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                r: 8;
+                opacity: 1;
+            }
+            50% {
+                r: 12;
+                opacity: 0.7;
+            }
+            100% {
+                r: 8;
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h1><i class="fas fa-water"></i> PROTEUS</h1>
+                <p class="subtitle">
+                    Pacific Radionuclide Oceanic Transport Engine & Universal Simulator
+                </p>
+            </div>
+
+            <div id="simulation-controls">
+
+                <!-- ===== VISUALIZATION TYPE TOGGLE ===== -->
+                <div class="control-group" style="border-bottom: 2px solid rgba(79, 195, 247, 0.25);">
+                    <label><i class="fas fa-eye"></i> VISUALIZATION</label>
+                    <div class="button-group">
+                        <button id="btn-concentration" class="btn active">
+                            <i class="fas fa-fire"></i> Concentration
+                        </button>
+                        <button id="btn-particles" class="btn">
+                            <i class="fas fa-dot-circle"></i> Particles
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ===== TRAILS TOGGLE ===== -->
+                <div class="control-group" style="display: flex; align-items: center; justify-content: space-between;">
+                    <label style="margin-bottom: 0;"><i class="fas fa-stream"></i> PARTICLE TRAILS</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="trailsToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <!-- ===== PRE-RENDER CONTROLS ===== -->
+                <div id="prender-controls">
+                    <!-- Particle Count -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-cubes"></i> PARTICLE COUNT</label>
+                            <span id="pr-particles-value" class="slider-value">5,000</span>
+                        </div>
+                        <input type="range" id="pr-particles" class="slider" min="100" max="50000" step="100" value="5000">
+                        <div class="slider-labels">
+                            <span>100</span>
+                            <span>50,000</span>
+                        </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-calendar-alt"></i> DURATION</label>
+                            <span id="pr-duration-value" class="slider-value">180 days</span>
+                        </div>
+                        <input type="range" id="pr-duration" class="slider" min="1" max="731" step="0.01" value="180">
+                        <div class="slider-labels">
+                            <span>1 day</span>
+                            <span id="duration-max-label">2 years</span>
+                        </div>
+                    </div>
+                    <!-- Snapshot Frequency -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-camera"></i> SNAPSHOT FREQUENCY</label>
+                            <span id="snapshot-frequency-value" class="slider-value">5 days</span>
+                        </div>
+                        <input type="range" id="snapshot-frequency" class="slider" min="1" max="30" step="1" value="5">
+                        <div class="slider-labels">
+                            <span>Daily</span>
+                            <span>Every 2 Weeks</span>
+                            <span>Monthly</span>
+                        </div>
+                    </div>
+
+                    <!-- EKE Diffusivity -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-water"></i> EKE DIFFUSIVITY</label>
+                            <span id="pr-eke-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="pr-eke" class="slider" min="0" max="10" step="0.1" value="1.0">
+                        <div class="slider-labels">
+                            <span>Pure advection</span>
+                            <span>10x Extreme</span>
+                        </div>
+                    </div>
+
+                    <!-- RK4 Toggle -->
+                    <div class="control-group" style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px;">
+                        <label style="margin-bottom: 0;"><i class="fas fa-chart-line"></i> RK4 INTEGRATION</label>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="pr-rk4" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Start Button -->
+                    <button id="btn-start-prerender" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-fire"></i> START PRE-RENDER
+                    </button>
+
+                    <!-- Progress Bar -->
+                    <div id="pr-progress" class="progress-container" style="display: none;">
+                        <div class="progress-header">
+                            <span id="pr-progress-message">Initializing...</span>
+                            <span id="pr-progress-percent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div id="pr-progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== PLAYBACK CONTROLS ===== -->
+                <div id="playback-controls" style="display: none;">
+                    <!-- Play/Pause -->
+                    <div class="button-group" style="margin-bottom: 15px;">
+                        <button id="playback-play" class="btn btn-primary" style="flex: 1;">
+                            <i class="fas fa-play"></i> PLAY
+                        </button>
+                        <button id="playback-pause" class="btn btn-secondary" style="flex: 1;">
+                            <i class="fas fa-pause"></i> PAUSE
+                        </button>
+                    </div>
+
+                    <!-- Playback Speed -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-tachometer-alt"></i> PLAYBACK SPEED</label>
+                            <span id="playback-speed-value" class="slider-value">1.0x</span>
+                        </div>
+                        <input type="range" id="playback-speed" class="slider" min="0.1" max="10" step="0.1" value="1.0">
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-sliders-h"></i> TIMELINE</label>
+                            <span id="playback-date-current" class="slider-value">Day 0</span>
+                        </div>
+                        <input type="range" id="playback-timeline" class="slider" min="0" value="0" step="0.1">
+                        <div class="slider-labels">
+                            <span id="playback-date-start">Day 0</span>
+                            <span id="playback-date-end">Day 180</span>
+                        </div>
+                    </div>
+
+                    <!-- DEPTH SLIDER - Signature Feature -->
+                    <div class="control-group" style="border-bottom: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <label><i class="fas fa-arrows-alt-v"></i> DEPTH LAYER</label>
+                            <span id="depth-value" class="slider-value">Surface (0m)</span>
+                        </div>
+                        <input type="range" id="depth-slider" class="slider" min="0" max="6" step="1" value="0">
+                        <div class="slider-labels">
+                            <span>All</span>
+                            <span>0m</span>
+                            <span>50m</span>
+                            <span>100m</span>
+                            <span>200m</span>
+                            <span>500m</span>
+                            <span>1000m</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Add this next to your download button -->
+                <div class="control-group" style="display: flex; gap: 10px;">
+                    <button id="download-snapshots" class="btn" style="flex: 1;">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                    <button id="import-snapshots" class="btn" style="flex: 1;">
+                        <i class="fas fa-upload"></i> Import
+                    </button>
+                </div>
+                <!-- Hidden file input -->
+                <input type="file" id="snapshot-upload" accept=".json" style="display: none;">
+
+                <!-- ===== TRACER SELECTION ===== -->
+                <div class="control-group">
+                    <label><i class="fas fa-flask"></i> TRACER</label>
+                    <select id="tracer-select" class="slider-value" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <optgroup label="Radionuclides">
+                            <option value="cs137">Cesium-137</option>
+                            <option value="cs134">Cesium-134</option>
+                            <option value="i131">Iodine-131</option>
+                            <option value="sr90">Strontium-90</option>
+                            <option value="h3">Tritium</option>
+                        </optgroup>
+                    </select>
+
+                    <!-- Tracer Info -->
+                    <div id="tracer-info" style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-top: 5px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Type:</span>
+                            <span id="tracer-type">Radionuclide</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Half-life:</span>
+                            <span id="tracer-halfLife">30 years</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Behavior:</span>
+                            <span id="tracer-behavior">Dissolved</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== LOCATION PICKER ===== -->
+                <div class="control-group">
+                    <label><i class="fas fa-map-marker-alt"></i> RELEASE LOCATION</label>
+
+                    <!-- Coordinate Inputs -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px;">Latitude</label>
+                            <input type="number" id="location-lat" min="-90" max="90" step="0.01" value="37.42"
+                                   style="width: 100%; background: rgba(0,0,0,0.3); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.3); border-radius: 4px; padding: 8px;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px;">Longitude</label>
+                            <input type="number" id="location-lon" min="100" max="260" step="0.01" value="142.03"
+                                   style="width: 100%; background: rgba(0,0,0,0.3); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.3); border-radius: 4px; padding: 8px;">
+                        </div>
+                    </div>
+
+                    <!-- Map Click Instructions -->
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                        <span style="color: #b0bec5; font-size: 11px;">OR</span>
+                        <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+                    </div>
+
+                    <!-- Map Click Mode Toggle -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
+                        <span style="color: #b0bec5; font-size: 12px;">
+                            <i class="fas fa-mouse-pointer"></i> Click on map to set location
+                        </span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="map-click-toggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Current Location Display -->
+                    <div style="background: rgba(79,195,247,0.1); padding: 8px; border-radius: 4px; margin-top: 5px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #b0bec5;">Current:</span>
+                            <span id="current-location" style="color: #4fc3f7; font-family: 'Courier New';">37.42°N, 142.03°E</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                            <span style="color: #b0bec5;">In Ocean:</span>
+                            <span id="location-ocean-status" style="color: #4fc3f7;">✅ Yes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== DATE RANGE ===== -->
+                <div class="control-group">
+                    <label><i class="fas fa-calendar-range"></i> SIMULATION PERIOD</label>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px;">Start Date</label>
+                            <input type="date" id="sim-start-date" value="2011-03-01"
+                                   style="width: 100%; background: rgba(0,0,0,0.3); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.3); border-radius: 4px; padding: 8px; font-family: 'Courier New';">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 11px;">End Date</label>
+                            <input type="date" id="sim-end-date" value="2013-02-28"
+                                   style="width: 100%; background: rgba(0,0,0,0.3); color: #4fc3f7; border: 1px solid rgba(79,195,247,0.3); border-radius: 4px; padding: 8px; font-family: 'Courier New';">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px;">
+                        <span style="color: #b0bec5;">Total Days:</span>
+                        <span id="total-days" style="color: #4fc3f7; font-family: 'Courier New';">731 days</span>
+                    </div>
+                </div>
+
+                <!-- ===== RELEASE PHASE EDITOR ===== -->
+                <div class="control-group">
+                    <label><i class="fas fa-calendar-alt"></i> RELEASE SCHEDULE</label>
+
+                    <div id="phase-container">
+                        <!-- Phases will be added by JavaScript -->
+                    </div>
+
+                    <button id="add-phase-btn" class="btn" style="width: 100%; margin: 10px 0;">
+                        <i class="fas fa-plus"></i> Add Release Phase
+                    </button>
+
+                    <!-- Live Release Stats -->
+                    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="color: #b0bec5;">Total Release:</span>
+                            <span id="total-release" style="color: #4fc3f7; font-weight: 600;">0 GBq</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                            <span style="color: #b0bec5;">Current Rate:</span>
+                            <span id="current-rate" style="color: #4fc3f7;">0 GBq/day</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #b0bec5;">Particles/Day:</span>
+                            <span id="particles-per-day" style="color: #4fc3f7;">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Time Display -->
+                <div class="time-display">
+                    <div>
+                        <span class="time-label"><i class="far fa-calendar-alt"></i> Simulation Day:</span>
+                        <span id="simulation-day" class="time-value">0.0</span>
+                    </div>
+                    <div>
+                        <span class="time-label"><i class="far fa-clock"></i> Date:</span>
+                        <span id="simulation-date" class="time-value">2011-03-11</span>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div id="simulation-stats" class="stats-panel">
+                    <div>
+                        <span class="stat-label">Active Particles:</span>
+                        <span id="stats-active" class="stat-value">0</span>
+                    </div>
+                    <div>
+                        <span class="stat-label">Total Released:</span>
+                        <span id="stats-released" class="stat-value">0</span>
+                    </div>
+                    <div>
+                        <span class="stat-label">Decayed:</span>
+                        <span id="stats-decayed" class="stat-value">0</span>
+                    </div>
+                    <div>
+                        <span class="stat-label">Max Depth:</span>
+                        <span id="stats-depth" class="stat-value">0m</span>
+                    </div>
+                    <div>
+                        <span class="stat-label"></span>
+                        <span id="stats-conc" class="stat-value"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>
+                    <i class="fas fa-database"></i> HYCOM 2011-2013 · AVISO EKE · 16.2 PBq calibration
+                </p>
+                <p style="margin-top: 5px;">
+                    <i class="fas fa-code"></i> Open source · 3D Lagrangian transport
+                </p>
+                <p style="margin-top: 8px; color: #4fc3f7;">
+                    <i class="fas fa-compass"></i> PROTEUS v1.0
+                </p>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div id="map-container">
+            <div id="map"></div>
+            <canvas id="deckgl-overlay"></canvas>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
+    <script src="https://unpkg.com/@deck.gl/aggregation-layers@8.9.35/dist.min.js"></script>
+    <script src="https://unpkg.com/@deck.gl/layers@8.9.35/dist.min.js"></script>
+    <script src="hycomLoader.js"></script>
+    <script src="cmemsLoader.js"></script>
+    <script src="particleEngine.js"></script>
+    <script src="bakeSystem.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

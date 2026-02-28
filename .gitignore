@@ -1,0 +1,17 @@
+.DSStore
+.*
+*/.DS_Store
+
+Data folders
+data/
+archive/
+venv/
+Python
+pycache/
+*.pyc
+
+Node/JS
+node_modules/
+
+.idea/
+*.iml
