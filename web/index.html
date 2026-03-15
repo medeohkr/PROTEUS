@@ -7,7 +7,7 @@
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌊</text></svg>">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -588,16 +588,16 @@
                         </div>
                     </div>
 
-                    <!-- EKE Diffusivity -->
+                    <!-- K Diffusivity -->
                     <div class="control-group">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <label><i class="fas fa-water"></i> EKE DIFFUSIVITY</label>
-                            <span id="pr-eke-value" class="slider-value">1.0x</span>
+                            <label><i class="fas fa-water"></i> K DIFFUSIVITY</label>
+                            <span id="pr-K-value" class="slider-value">1.0x</span>
                         </div>
-                        <input type="range" id="pr-eke" class="slider" min="0" max="10" step="0.1" value="1.0">
+                        <input type="range" id="pr-K" class="slider" min="0" max="10" step="0.1" value="1.0">
                         <div class="slider-labels">
                             <span>Pure advection</span>
-                            <span>10x Extreme</span>
+                            <span>Extreme diffusion</span>
                         </div>
                     </div>
 
@@ -645,7 +645,7 @@
                             <label><i class="fas fa-tachometer-alt"></i> PLAYBACK SPEED</label>
                             <span id="playback-speed-value" class="slider-value">1.0x</span>
                         </div>
-                        <input type="range" id="playback-speed" class="slider" min="0.1" max="10" step="0.1" value="1.0">
+                        <input type="range" id="playback-speed" class="slider" min="0.1" max="20" step="0.1" value="1.0">
                     </div>
 
                     <!-- Timeline -->
@@ -701,6 +701,8 @@
                             <option value="i131">Iodine-131</option>
                             <option value="sr90">Strontium-90</option>
                             <option value="h3">Tritium</option>
+                            <option value="lightOil">Light Oil</option>
+                            <option value="heavyOil">Heavy Oil</option>
                         </optgroup>
                     </select>
 
@@ -858,18 +860,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="sidebar-footer">
-                <p>
-                    <i class="fas fa-database"></i> HYCOM 2011-2013 · AVISO EKE · 16.2 PBq calibration
-                </p>
-                <p style="margin-top: 5px;">
-                    <i class="fas fa-code"></i> Open source · 3D Lagrangian transport
-                </p>
-                <p style="margin-top: 8px; color: #4fc3f7;">
-                    <i class="fas fa-compass"></i> PROTEUS v1.0
-                </p>
-            </div>
         </div>
 
         <!-- Map Container -->
@@ -884,8 +874,8 @@
     <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
     <script src="https://unpkg.com/@deck.gl/aggregation-layers@8.9.35/dist.min.js"></script>
     <script src="https://unpkg.com/@deck.gl/layers@8.9.35/dist.min.js"></script>
-    <script src="hycomLoader.js"></script>
-    <script src="cmemsLoader.js"></script>
+    <script src="glorysLoader.js"></script>
+    <script src="kLoader.js"></script>
     <script src="particleEngine.js"></script>
     <script src="bakeSystem.js"></script>
     <script src="app.js"></script>

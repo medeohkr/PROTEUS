@@ -9,6 +9,9 @@ venv/
 Python
 pycache/
 *.pyc
+web_extra/
+scripts_extra/
+figures/
 
 Node/JS
 node_modules/

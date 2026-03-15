@@ -1,16 +1,35 @@
+#!/usr/bin/env python3
+"""
+GLORYS Advection Data Converter + Metadata Generator
+Converts NetCDF to binary and creates metadata file
+"""
+
 import xarray as xr
 import numpy as np
 import struct
+import json
 from pathlib import Path
+from datetime import datetime
 
-# Configuration
+# ===== CONFIGURATION =====
 input_dir = Path("D:/PROTEUS/data/glorys_3yr_fixed")
 output_dir = Path("D:/PROTEUS/data/glorys_3yr_bin")
 output_dir.mkdir(exist_ok=True)
 
+BASE_DATE = datetime(2011, 1, 1)
+
+# ===== MAIN CONVERSION =====
+print("\n" + "="*70)
+print("🌊 GLORYS Advection Converter + Metadata")
+print("="*70)
+
 # Find all monthly NetCDF files
 nc_files = sorted(input_dir.glob("glorys_*.nc"))
 print(f"Found {len(nc_files)} monthly files to process")
+
+all_days = []
+total_processed = 0
+total_skipped = 0
 
 # Loop through each file
 for nc_file in nc_files:
@@ -66,7 +85,7 @@ for nc_file in nc_files:
         # Write daily file
         output_file = output_dir / f"glorys_{day_str}.bin"
         
-        # Skip if already exists (optional)
+        # Skip if already exists
         if output_file.exists():
             print(f"  ⏭️  {day_str} already exists, skipping")
             days_skipped += 1
@@ -91,9 +110,65 @@ for nc_file in nc_files:
         
         print(f"  ✅ Saved: glorys_{day_str}.bin")
         days_processed += 1
+        
+        # Add to metadata list
+        file_date = datetime(year, month, day_num)
+        day_offset = (file_date - BASE_DATE).days
+        all_days.append({
+            'year': year,
+            'month': month,
+            'day': day_num,
+            'date_str': f"{year}-{month:02d}-{day_num:02d}",
+            'day_offset': day_offset,
+            'file': f"glorys_{day_str}.bin"
+        })
     
     print(f"  📊 Summary: {days_processed} processed, {days_skipped} skipped")
+    total_processed += days_processed
+    total_skipped += days_skipped
     ds.close()
 
-print("\n" + "="*50)
+# ===== SAVE METADATA =====
+print("\n" + "="*70)
+print("📝 Saving metadata...")
+print("="*70)
+
+# Get grid info from first processed file (or use constants)
+if all_days:
+    # Use constants from your grid
+    metadata = {
+        'description': 'GLORYS daily currents at multiple depths (binary format)',
+        'binary_version': 2,  # float16
+        'base_date': BASE_DATE.isoformat(),
+        'depths': depths.tolist(),
+        'depth_count': len(depths),
+        'grid': {
+            'n_lat': n_lat,
+            'n_lon': n_lon,
+            'n_depth': len(depths),
+            'lon_range': [float(lons.min()), float(lons.max())],
+            'lat_range': [float(lats.min()), float(lats.max())]
+        },
+        'days': all_days,
+        'total_days': len(all_days),
+        'date_range': {
+            'start': all_days[0]['date_str'] if all_days else None,
+            'end': all_days[-1]['date_str'] if all_days else None
+        },
+        'stats': {
+            'total_processed': total_processed,
+            'total_skipped': total_skipped
+        }
+    }
+
+    metadata_path = output_dir / 'glorys_metadata.json'
+    with open(metadata_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    print(f"✅ Metadata saved: {metadata_path}")
+    print(f"   {len(all_days)} days processed")
+    print(f"   Depths: {len(depths)} levels")
+
+print("\n" + "="*70)
 print("🎉 All files processed successfully!")
+print("="*70)

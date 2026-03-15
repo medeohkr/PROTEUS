@@ -1,15 +1,16 @@
+#!/usr/bin/env python3
 """
-PROTEUS Daily K-Value Calculator
-CORRECTED VERSION: Uses daily EKE, not mean EKE
+PROTEUS Daily K-Value Calculator + Metadata Generator
 Following Klocker et al. 2012:
 - Pass 1: Compute 3-year means (u_mean, v_mean)
 - Pass 2: For each day, compute daily anomalies → daily EKE → daily K
+- Generates metadata file alongside K-fields
 """
 
 import numpy as np
 import struct
-from pathlib import Path
 import json
+from pathlib import Path
 from datetime import datetime
 import gc
 
@@ -22,6 +23,9 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # Klocker parameters
 MIXING_EFFICIENCY = 0.35
 G_OVER_K = 0.03
+
+BASE_DATE = datetime(2011, 1, 1)
+
 
 # ===== FILE READING FUNCTIONS =====
 
@@ -83,12 +87,14 @@ print(f"Found {len(glorys_files)} daily files")
 u_sum = None
 v_sum = None
 count = 0
+n_depth, n_lat, n_lon = None, None, None
 
 for i, f in enumerate(glorys_files):
     if i % 100 == 0:
         print(f"  Processing file {i}/{len(glorys_files)}...")
     
-    u, v, n_depth, n_lat, n_lon, _ = read_glorys_daily(f)
+    u, v, n_d, n_la, n_lo, _ = read_glorys_daily(f)
+    n_depth, n_lat, n_lon = n_d, n_la, n_lo
     
     if u_sum is None:
         u_sum = np.zeros((n_depth, n_lat, n_lon), dtype=np.float64)
@@ -106,13 +112,13 @@ v_mean = (v_sum / count).astype(np.float32)
 # Compute mean flow speed U
 U_mean = np.sqrt(u_mean**2 + v_mean**2)
 
-# Free the large sum arrays (we don't need them anymore)
+# Free the large sum arrays
 del u_sum, v_sum
 gc.collect()
 
 print(f"  ✓ U range: {U_mean.min():.3f} - {U_mean.max():.3f} m/s")
 
-# After computing u_mean and v_mean in your K script:
+# Save means for potential reuse
 np.savez("D:/PROTEUS/data/3yr_means.npz",
          u_mean=u_mean,
          v_mean=v_mean,
@@ -132,6 +138,7 @@ print(f"Found {len(eddy_files)} eddy files")
 
 days_processed = 0
 total_size = 0
+all_days = []
 
 for glorys_file in glorys_files:
     date_str = glorys_file.stem.split('_')[1]
@@ -150,7 +157,7 @@ for glorys_file in glorys_files:
     u_prime = u_daily - u_mean
     v_prime = v_daily - v_mean
     
-    # ===== DAILY EKE (THIS is what we need!) =====
+    # ===== DAILY EKE =====
     eke_daily = 0.5 * (u_prime**2 + v_prime**2)
     
     # Read eddy data for today
@@ -198,6 +205,17 @@ for glorys_file in glorys_files:
     print(f"     EKE daily range: {eke_daily.min():.6f} - {eke_daily.max():.6f} m²/s²")
     print(f"     K range: {K_daily.min():.1f} - {K_daily.max():.1f} m²/s")
     
+    # Add to metadata
+    day_offset = (date_obj - BASE_DATE).days
+    all_days.append({
+        'year': date_obj.year,
+        'month': date_obj.month,
+        'day': date_obj.day,
+        'date_str': date_obj.strftime("%Y-%m-%d"),
+        'day_offset': day_offset,
+        'file': output_file.name
+    })
+    
     days_processed += 1
     total_size += output_file.stat().st_size
     
@@ -209,6 +227,14 @@ for glorys_file in glorys_files:
 print("\n" + "="*70)
 print("📝 Saving metadata...")
 print("="*70)
+
+# Get depths from first K-file (or use defaults)
+# Since K-files don't store depths, we'll use the depth array from means
+# (you'll need to have depths available — you might want to save them from earlier)
+
+# For now, use a placeholder or load from a saved depths file
+# You could also read from the original GLORYS NetCDF if available
+depths = np.linspace(0, 1000, n_depth)  # Placeholder — adjust as needed
 
 metadata = {
     'description': 'Daily eddy diffusivity (K) fields for PROTEUS',
@@ -223,20 +249,28 @@ metadata = {
     'grid': {
         'n_lat': n_lat,
         'n_lon': n_lon,
-        'n_depth': n_depth
+        'n_depth': n_depth,
+        'lon_range': [100, 260],
+        'lat_range': [0, 65]
     },
+    'depths': depths.tolist(),
+    'depth_count': n_depth,
+    'base_date': BASE_DATE.isoformat(),
     'date_range': {
-        'start': glorys_files[0].stem.split('_')[1],
-        'end': glorys_files[-1].stem.split('_')[1],
+        'start': all_days[0]['date_str'] if all_days else None,
+        'end': all_days[-1]['date_str'] if all_days else None,
         'days': days_processed
     },
+    'days': all_days,
     'total_size_gb': total_size / (1024**3)
 }
 
-with open(OUTPUT_DIR / 'k_metadata.json', 'w') as f:
+metadata_path = OUTPUT_DIR / 'k_field_metadata.json'
+with open(metadata_path, 'w') as f:
     json.dump(metadata, f, indent=2)
 
 print(f"\n🎉 COMPLETE! Processed {days_processed} days")
 print(f"📁 Output: {OUTPUT_DIR}")
 print(f"📊 Total size: {metadata['total_size_gb']:.1f} GB")
-print(f"📊 Daily EKE used, not mean EKE ✓")
+print(f"📁 Metadata: {metadata_path}")
+print("="*70)

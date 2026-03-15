@@ -1,9 +1,3 @@
-// PROTEUS Particle Engine - Pacific Radionuclide Oceanic Transport Engine & Universal Simulator
-console.log('=== PROTEUS Particle Engine Loading ===');
-
-// ==================== TRACER LIBRARY ====================
-// Focused on radionuclides only - oil and other tracers removed
-
 const TracerLibrary = {
     cs137: {
         id: 'cs137',
@@ -84,7 +78,44 @@ const TracerLibrary = {
             sigmaH: 11000,
             sigmaV: 55
         }
-    }
+    },
+    lightOil: {
+        id: 'lightOil',
+        name: 'Light Crude Oil',
+        type: 'hydrocarbon',
+        density: 850, // kg/m³ (floats)
+        units: 'tons',
+        defaultTotal: 10000, // 10,000 tons
+        color: '#8B7355',
+        description: 'Floating oil slick, evaporates',
+        behavior: {
+            diffusivityScale: 1.2,
+            settlingVelocity: -0.2, // rises (m/day)
+            beaching: 0.9,
+            evaporation: 0.1, // per day
+            sigmaH: 15000,
+            sigmaV: 20 // stays near surface
+        }
+    },
+
+    heavyOil: {
+        id: 'heavyOil',
+        name: 'Heavy Fuel Oil',
+        type: 'hydrocarbon',
+        density: 980, // kg/m³ (near neutral)
+        units: 'tons',
+        defaultTotal: 5000,
+        color: '#4A3C31',
+        description: 'Sinks and persists',
+        behavior: {
+            diffusivityScale: 0.7,
+            settlingVelocity: 0.1, // slowly sinks
+            beaching: 0.95,
+            evaporation: 0.02,
+            sigmaH: 8000,
+            sigmaV: 30
+        }
+    },
 };
 
 // ==================== RELEASE PHASE MANAGER ====================
@@ -152,10 +183,9 @@ class ReleaseManager {
 
 class ParticleEngine3D {
     constructor(numParticles = 10000, tracerId = 'cs137', startLocation = null) {
-        console.log('🚀 Initializing PROTEUS Particle Engine');
 
-        this.hycomLoader = window.streamingHycomLoader3D;
-        this.ekeLoader = window.streamingEkeLoader;
+        this.glorysLoader = window.streamingGlorysLoader3D;
+        this.KLoader = window.streamingKLoader;
 
         // Coordinate system
         if (startLocation) {
@@ -252,9 +282,9 @@ class ParticleEngine3D {
 
     async init() {
         try {
-            if (this.hycomLoader && !this.hycomLoader.metadata) await this.hycomLoader.init();
-            if (this.ekeLoader && !this.ekeLoader.metadata) await this.ekeLoader.init();
-            await this.hycomLoader.loadDayByOffset(0);
+            if (this.glorysLoader && !this.glorysLoader.metadata) await this.glorysLoader.init();
+            if (this.KLoader && !this.KLoader.metadata) await this.KLoader.init();
+            await this.glorysLoader.loadDayByOffset(0);
             return true;
         } catch (error) {
             console.error('Engine init failed:', error);
@@ -353,7 +383,6 @@ class ParticleEngine3D {
         }
 
         this.stats.totalReleased += released;
-        console.log(`🎯 Released ${released} particles at ${RELEASE_CENTER.lat}°N, ${RELEASE_CENTER.lon}°E`);
         return released;
     }
 
@@ -394,19 +423,19 @@ class ParticleEngine3D {
     // ==================== LAND INTERACTION ====================
 
     async checkLandInteraction(p, prevX, prevY, prevDepth, currentSimDay) {
-        if (!this.landSettings.enabled || !this.hycomLoader) return false;
+        if (!this.landSettings.enabled || !this.glorysLoader) return false;
 
         const lon = this.REFERENCE_LON + (p.x / this.LON_SCALE);
         const lat = this.REFERENCE_LAT + (p.y / this.LAT_SCALE);
         const depthMeters = p.depth * 1000;
 
         try {
-            const isOcean = await this.hycomLoader.isOcean(lon, lat, depthMeters, currentSimDay);
+            const isOcean = await this.glorysLoader.isOcean(lon, lat, depthMeters, currentSimDay);
 
             if (!isOcean) {
                 p.x = prevX; p.y = prevY; p.depth = prevDepth;
 
-                const oceanCell = await this.hycomLoader.findNearestOceanCell(
+                const oceanCell = await this.glorysLoader.findNearestOceanCell(
                     lon, lat, depthMeters, currentSimDay, this.landSettings.maxLandSearchRadius
                 );
 
@@ -439,7 +468,7 @@ class ParticleEngine3D {
             const testY = startY + stepY * s;
             const testLon = this.REFERENCE_LON + (testX / this.LON_SCALE);
             const testLat = this.REFERENCE_LAT + (testY / this.LAT_SCALE);
-            const isOcean = await this.hycomLoader.isOcean(testLon, testLat, depth * 1000, currentSimDay);
+            const isOcean = await this.glorysLoader.isOcean(testLon, testLat, depth * 1000, currentSimDay);
 
             if (!isOcean) {
                 return {
@@ -459,17 +488,17 @@ class ParticleEngine3D {
             const lon = this.REFERENCE_LON + (p.x / this.LON_SCALE);
             const lat = this.REFERENCE_LAT + (p.y / this.LAT_SCALE);
             
-            const ekeResult = await this.ekeLoader.getDiffusivityAt(lon, lat, currentSimDay);
+            const KResult = await this.KLoader.getDiffusivityAt(lon, lat, currentSimDay);
             
 
-            let K_m2_s = ekeResult.found ?
-                ekeResult.K * this.params.diffusivityScale * (this.tracer.behavior.diffusivityScale || 1.0) :
+            let K_m2_s = KResult.found ?
+                KResult.k * this.params.diffusivityScale * (this.tracer.behavior.diffusivityScale || 1.0) :
                 20 * this.params.diffusivityScale;
             
             const stepScale_km = Math.sqrt(2 * K_m2_s * deltaDays * 86400) / 1000;
-            
             p.x += stepScale_km * this.gaussianRandom();
             p.y += stepScale_km * this.gaussianRandom();
+
             
         } catch (e) {
             console.error('Diffusion error:', e);
@@ -593,7 +622,7 @@ class ParticleEngine3D {
                 }
 
                 // Diffusion
-                if (this.ekeLoader && this.params.diffusivityScale > 0.01) {
+                if (this.KLoader && this.params.diffusivityScale > 0.01) {
                     const beforeX = p.x, beforeY = p.y;
                     await this.applyDiffusion(p, deltaDays, currentSimDay);
 
@@ -602,7 +631,6 @@ class ParticleEngine3D {
                         p.x = beforeX; p.y = beforeY;
                     }
                 }
-
                 // Land check
                 if (await this.checkLandInteraction(p, prevX, prevY, prevDepth, currentSimDay)) {
                     this.stats.particlesOnLand++;
@@ -639,7 +667,7 @@ class ParticleEngine3D {
     // ==================== VELOCITY METHODS ====================
 
     async getVelocitiesForGroup(particles, targetDepth, simulationDay) {
-        if (!this.hycomLoader) {
+        if (!this.glorysLoader) {
             return particles.map(() => ({ u: 0, v: 0, found: false }));
         }
 
@@ -649,17 +677,17 @@ class ParticleEngine3D {
         }));
 
         try {
-            return await this.hycomLoader.getVelocitiesAtMultiple(positions, targetDepth, simulationDay);
+            return await this.glorysLoader.getVelocitiesAtMultiple(positions, targetDepth, simulationDay);
         } catch {
             return particles.map(() => ({ u: 0, v: 0, found: false }));
         }
     }
 
     async getVelocityAt(lon, lat, depthMeters, simDay) {
-        if (!this.hycomLoader) return { u: 0, v: 0, found: false };
+        if (!this.glorysLoader) return { u: 0, v: 0, found: false };
 
         try {
-            const depths = this.hycomLoader.getAvailableDepths();
+            const depths = this.glorysLoader.getAvailableDepths();
             let targetDepth = depths[0];
             let minDiff = Math.abs(depthMeters - depths[0]);
 
@@ -668,16 +696,16 @@ class ParticleEngine3D {
                 if (diff < minDiff) { minDiff = diff; targetDepth = d; }
             }
 
-            return await this.hycomLoader.getVelocityAt(lon, lat, targetDepth, simDay);
+            return await this.glorysLoader.getVelocityAt(lon, lat, targetDepth, simDay);
         } catch {
             return { u: 0, v: 0, found: false };
         }
     }
 
     groupParticlesByDepth(particles) {
-        if (!this.hycomLoader) return { '0': particles };
+        if (!this.glorysLoader) return { '0': particles };
 
-        const depths = this.hycomLoader.getAvailableDepths();
+        const depths = this.glorysLoader.getAvailableDepths();
         const groups = {};
 
         for (const p of particles) {
@@ -863,5 +891,3 @@ if (typeof window !== 'undefined') {
     window.ParticleEngine3D = ParticleEngine3D;
     window.ParticleEngine = ParticleEngine3D;
 }
-
-console.log('✅ PROTEUS Particle Engine loaded');

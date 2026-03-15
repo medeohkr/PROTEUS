@@ -1,15 +1,7 @@
-// web/app.js - PROTEUS Core Application (Pre-render Only)
-console.log('=== PROTEUS App Initializing ===');
-
-// ============================================================================
-// GLOBAL VARIABLES
-// ============================================================================
-
-// Core
 let engine = null;
 let bakeSystem = null;
 let animationId = null;
-let simulationMode = 'baked'; // Only 'baked' remains
+let simulationMode = 'baked';
 
 // Map visualization
 let simMap = null;
@@ -27,7 +19,7 @@ let statsInterval = null;
 let currentDepth = 0;
 const depthLevels = [0, 50, 100, 200, 500, 1000];
 const ALL_DEPTHS = -1;
-let visualizationMode = 'concentration'; // 'concentration' or 'particles'
+let visualizationMode = 'concentration';
 
 // Location picker
 let mapClickEnabled = false;
@@ -102,7 +94,6 @@ async function init() {
             animate();
         }, 500);
 
-        console.log('✅ PROTEUS initialized successfully');
         return true;
 
     } catch (error) {
@@ -168,6 +159,7 @@ function setupBakeSystemCallbacks() {
 
         if (visualizationMode === 'concentration') {
             updateDeckGLHeatmap(currentBakedParticles);
+            createHeatmapColorLegend(shouldShowLegend());
         } else {
             updateDeckGLParticles(currentBakedParticles);
         }
@@ -192,7 +184,7 @@ function setupAllControls() {
     setupVisualizationMode();
     updateUIForEngine();
     updateDateTimeDisplay();
-    createHeatmapColorLegend();
+    createHeatmapColorLegend(true);
     setupTrailToggle();
     setupUIModeSwitching();
     setupSliderValueDisplays();
@@ -215,7 +207,6 @@ async function initDeckGL() {
         showDataWarning('WebGL heatmap not available');
         return;
     }
-
     const canvas = document.getElementById('deckgl-overlay');
     if (!canvas) return;
 
@@ -381,7 +372,7 @@ function updateDeckGLHeatmap(particles) {
 
         return {
             position: cell.position,
-            weight: Math.max(0, Math.min(normalized, 1)) // Clamp to 0-1
+            weight: Math.max(0, Math.min(normalized, 1)) 
         };
     });
 
@@ -549,7 +540,7 @@ function updateDeckGLParticles(particles) {
 }
 
 function getParticleColor(p) {
-    if (!p.concentration) return [255, 255, 255, 150]; // White for no data
+    if (!p.concentration) return [255, 255, 255, 150];
 
     // Convert concentration to 0-1 normalized value
     const concentration = Math.max(p.concentration, CONCENTRATION_RANGE.min);
@@ -560,7 +551,6 @@ function getParticleColor(p) {
     const logMax = Math.log10(CONCENTRATION_RANGE.max);
     const normalized = (logConc - logMin) / (logMax - logMin);
 
-    // Your beautiful color scheme
     const colorStops = [
         [231, 236, 251, 200], // Very low - Soft blue-white
         [195, 209, 247, 200], // Low - Light blue
@@ -586,11 +576,11 @@ function getParticleColor(p) {
 function getTrailColor(p) {
     // Fade trail color based on particle age
     const age = p.age || 0;
-    const alpha = Math.max(50, 255 - age * 2); // Fade with age
+    const alpha = Math.max(50, 255 - age * 2); 
 
-    if (age < 100) return [255, 107, 107, alpha];    // Red for new particles
-    if (age < 300) return [255, 193, 7, alpha];      // Yellow for medium age
-    return [79, 195, 247, alpha];                    // Blue for old particles
+    if (age < 100) return [255, 107, 107, alpha];   
+    if (age < 300) return [255, 193, 7, alpha];  
+    return [79, 195, 247, alpha];         
 }
 
 function getParticleRadius(p) {
@@ -605,7 +595,7 @@ function getParticleRadius(p) {
 
     // Boost radius for the highest concentrations (yellow/orange range)
     if (logConc > 6) {
-        return baseRadius * 1.2; // 20% larger for peak
+        return baseRadius * 1.2; 
     }
 
     return baseRadius;
@@ -636,7 +626,7 @@ function setupVisualizationMode() {
 
             // Show pre-render UI
             if (prenderControls) prenderControls.style.display = 'block';
-            if (playbackControls) playbackControls.style.display = 'none'; // Hidden until pre-render completes
+            if (playbackControls) playbackControls.style.display = 'none'; 
 
             // If we already have baked data loaded, use it
             if (bakeSystem && bakeSystem.snapshots.length > 0) {
@@ -763,11 +753,11 @@ function setupSliderValueDisplays() {
         });
     }
 
-    const prEke = document.getElementById('pr-eke');
-    if (prEke) {
-        const display = document.getElementById('pr-eke-value');
-        display.textContent = parseFloat(prEke.value).toFixed(1) + 'x';
-        prEke.addEventListener('input', (e) => {
+    const prK = document.getElementById('pr-K');
+    if (prK) {
+        const display = document.getElementById('pr-K-value');
+        display.textContent = parseFloat(prK.value).toFixed(1) + 'x';
+        prK.addEventListener('input', (e) => {
             display.textContent = parseFloat(e.target.value).toFixed(1) + 'x';
         });
     }
@@ -802,7 +792,7 @@ function setupSliderValueDisplays() {
                 display.textContent = 'All Depths';
             } else {
                 // Specific depth
-                const depth = depthLevels[index - 1]; // Offset by 1 because index 0 is "All"
+                const depth = depthLevels[index - 1];
                 currentDepth = depth;
 
                 if (depth === 0) display.textContent = 'Surface (0m)';
@@ -813,9 +803,8 @@ function setupSliderValueDisplays() {
                 else display.textContent = 'Deep ocean (1000m)';
             }
 
-            // Update HYCOM loader (only if not "All Depths")
-            if (window.streamingHycomLoader3D && currentDepth !== ALL_DEPTHS) {
-                window.streamingHycomLoader3D.setDefaultDepth(currentDepth);
+            if (window.streamingGlorysLoader3D && currentDepth !== ALL_DEPTHS) {
+                window.streamingGlorysLoader3D.setDefaultDepth(currentDepth);
             }
 
             // Refresh visualization
@@ -852,9 +841,10 @@ function setupPreRenderButton() {
 
         const config = {
             numParticles: parseInt(document.getElementById('pr-particles').value),
-            ekeDiffusivity: parseFloat(document.getElementById('pr-eke').value),
+            KDiffusivity: parseFloat(document.getElementById('pr-K').value),
             rk4Enabled: document.getElementById('pr-rk4').checked,
             durationDays: parseInt(document.getElementById('pr-duration').value),
+            snapshotFrequency: parseInt(document.getElementById('snapshot-frequency').value),
             startDate: simulationStartDate,
             endDate: simulationEndDate,
             location: {
@@ -862,6 +852,7 @@ function setupPreRenderButton() {
                 lon: engine.REFERENCE_LON
             },
             phases: phases
+            
         };
 
         // Show progress
@@ -917,6 +908,9 @@ function setupPlaybackControls() {
     const speedSlider = document.getElementById('playback-speed');
     const timelineSlider = document.getElementById('playback-timeline');
 
+    if (bakeSystem && speedSlider) {
+        bakeSystem.playbackSpeed = parseFloat(speedSlider.value);
+    }
     // Play button
     if (playBtn) {
         const newPlayBtn = playBtn.cloneNode(true);
@@ -1026,7 +1020,7 @@ function setupSnapshotImport() {
     if (!importBtn || !fileInput) return;
 
     importBtn.addEventListener('click', () => {
-        fileInput.click(); // Trigger file selection
+        fileInput.click();
     });
 
     fileInput.addEventListener('change', async (e) => {
@@ -1061,8 +1055,6 @@ function setupSnapshotImport() {
                 document.getElementById('playback-date-start').textContent = 'Day 0';
                 bakeSystem.seek(0);
             }
-
-            console.log('✅ Imported', imported.snapshots.length, 'snapshots');
 
         } catch (error) {
             console.error('❌ Import failed:', error);
@@ -1118,9 +1110,9 @@ function setupLocationPicker() {
 
     // Check if coordinates are in ocean
     async function checkIfOcean(lat, lon) {
-        if (!engine || !engine.hycomLoader) return true;
+        if (!engine || !engine.glorysLoader) return true;
         try {
-            return await engine.hycomLoader.isOcean(lon, lat, 0, 0);
+            return await engine.glorysLoader.isOcean(lon, lat, 0, 0);
         } catch {
             return true;
         }
@@ -1377,12 +1369,12 @@ function updateUIForEngine() {
         prRk4.checked = engine.rk4Enabled || false;
     }
 
-    const prEke = document.getElementById('pr-eke');
-    const prEkeValue = document.getElementById('pr-eke-value');
-    if (prEke && prEkeValue) {
-        const eke = engine.params?.diffusivityScale || 1.0;
-        prEke.value = eke;
-        prEkeValue.textContent = eke.toFixed(1) + 'x';
+    const prK = document.getElementById('pr-K');
+    const prKValue = document.getElementById('pr-K-value');
+    if (prK && prKValue) {
+        const K = engine.params?.diffusivityScale || 1.0;
+        prK.value = K;
+        prKValue.textContent = K.toFixed(1) + 'x';
     }
 
     // Update the stats panel with current data
@@ -1413,61 +1405,66 @@ function updateCanvasOverlay() {
 // ============================================================================
 // LEGEND
 // ============================================================================
+function shouldShowLegend() {
+    if (!engine || !engine.tracer) return false;
+    
+    const tracer = engine.tracer;
+    
+    // Check if units are radionuclide units
+    const hasRadionuclideUnits = ['PBq', 'TBq', 'GBq'].includes(tracer.units);
+    
+    // Check if tracer type is radionuclide
+    const isRadionuclide = tracer.type === 'radionuclide';
+    
+    return hasRadionuclideUnits && isRadionuclide;
+}
 
-function createHeatmapColorLegend() {
+function createHeatmapColorLegend(show = true) {
     // Remove old legend
     const oldLegend = document.getElementById('concentration-legend');
     if (oldLegend) oldLegend.remove();
-
-    // Create container
+    
+    // Don't create if show is false
+    if (!show) return;
+    // Create container - minimal styling, no border
     const legendDiv = document.createElement('div');
     legendDiv.id = 'concentration-legend';
     legendDiv.style.cssText = `
         position: absolute;
         bottom: 25px;
         right: 25px;
-        background: rgba(15, 30, 45, 0.95);
-        border: 2px solid #4fc3f7;
-        border-radius: 8px;
-        padding: 15px;
-        width: 240px;
-        color: white;
-        font-family: monospace;
+        display: flex;
+        gap: 10px;
         z-index: 9999;
     `;
 
     // Build HTML
-    let html = '<div style="text-align:center; margin-bottom:10px;"><h3 style="margin:0; color:#4fc3f7;">Cs-137 Concentration</h3></div>';
-    html += '<div style="display:flex; gap:10px;">';
+    let html = '';
 
-    // Color bars
-    html += '<div style="flex:1; display:flex; flex-direction:column; gap:2px;">';
+    // Color bars (no container box)
+    html += '<div style="display:flex; flex-direction:column; gap:2px;">';
     const colors = [
         '#ffd801', '#ff9a00', '#ff6a00', '#ff2900',
         '#ff736b', '#fcb8c5', '#8d8ed5', '#4473e3',
         '#7899e3', '#a2baf4', '#c3d1f7', '#e7ecfb'
     ];
     for (let i = 0; i < 12; i++) {
-        html += `<div style="background: ${colors[i]}; height: 20px; width: 100%;"></div>`;
+        html += `<div style="background: ${colors[i]}; height: 20px; width: 30px;"></div>`;
     }
     html += '</div>';
 
-    // Value labels
-    html += '<div style="flex:2; display:flex; flex-direction:column; gap:2px; text-align:right;">';
+    // Value labels (no container box)
+    html += '<div style="display:flex; flex-direction:column; gap:2px; text-align:right;">';
     for (let i = 0; i < 12; i++) {
-        html += `<div id="legend-val-${i}" style="background: rgba(0,0,0,0.3); padding: 2px 5px; height: 20px; line-height: 20px;">-</div>`;
+        html += `<div id="legend-val-${i}" style="color: white; font-family: monospace; font-size: 10px; height: 20px; line-height: 20px;">-</div>`;
     }
     html += '</div>';
-
 
     legendDiv.innerHTML = html;
     document.getElementById('map-container').appendChild(legendDiv);
-
-    console.log('Legend created');
 }
 
 function updateHeatmapLegend(minVal, maxVal) {
-    console.log('updateHeatmapLegend called with:', minVal, maxVal);
 
     const minBq = minVal * 1e9;
     const maxBq = maxVal * 1e9;
@@ -1716,6 +1713,7 @@ function setupTracerUI() {
                 engine.tracerId = tracerId;
                 engine.tracer = tracer;
                 engine.calculateParticleCalibration();
+                createHeatmapColorLegend(shouldShowLegend());
             }
         }
     });
@@ -1773,6 +1771,7 @@ function setupPhaseEditor() {
                         <option value="PBq" ${phaseData?.unit === 'PBq' ? 'selected' : ''}>PBq</option>
                         <option value="TBq" ${phaseData?.unit === 'TBq' ? 'selected' : ''}>TBq</option>
                         <option value="GBq" ${phaseData?.unit === 'GBq' ? 'selected' : ''}>GBq</option>
+                        <option value="tons" ${phaseData?.unit === 'tons' ? 'selected' : ''}>tons</option>
                     </select>
                 </div>
             </div>
@@ -1795,7 +1794,7 @@ function setupPhaseEditor() {
             if (unit === 'PBq') rateDisplay = `${rate.toFixed(2)} PBq/day`;
             else if (unit === 'TBq') rateDisplay = `${rate.toFixed(2)} TBq/day`;
             else if (unit === 'GBq') rateDisplay = `${rate.toFixed(2)} GBq/day`;
-            else rateDisplay = `${rate.toFixed(2)} kg/day`;
+            else if (unit === 'tons') rateDisplay = `${rate.toFixed(2)} tons/day`;
 
             phaseDiv.querySelector('.phase-rate-display').textContent = rateDisplay;
         };
@@ -2226,7 +2225,7 @@ function createStatusElement() {
             <div id="loadingBar" style="width: 0%; height: 100%; background: #4fc3f7; border-radius: 2px; transition: width 0.3s;"></div>
         </div>
         <div style="margin-top: 30px; font-size: 14px; color: #b0bec5;">
-            HYCOM 2011-2013 · AVISO EKE
+            GLORYS 2011-2013 · Klocker K-Field
         </div>
     `;
 

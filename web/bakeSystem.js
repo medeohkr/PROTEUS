@@ -1,6 +1,3 @@
-// bakeSystem.js - Fixed Version with Smooth Fixed Steps
-console.log('=== Bake System Loading ===');
-
 class BakeSystem {
     constructor() {
         this.snapshots = [];
@@ -24,9 +21,6 @@ class BakeSystem {
             startTime: Date.now(),
             snapshots: []
         };
-
-        console.log('🔥 Starting bake with config:', config);
-
         try {
             // Step 1: Initialize engine
             this.updateProgress(0, 'Initializing simulation...');
@@ -44,7 +38,7 @@ class BakeSystem {
                 engine.setReleasePhases(phasesToCopy);
             }
 
-            engine.setParameter('diffusivityScale', config.ekeDiffusivity);
+            engine.setParameter('diffusivityScale', config.KDiffusivity);
             if (config.rk4Enabled) engine.enableRK4(true);
 
             if (config.startDate) {
@@ -56,17 +50,13 @@ class BakeSystem {
             engine.startSimulation();
 
             // ===== FIXED TIME STEP CONFIGURATION =====
-            const STEP_SIZE = 0.1; // 0.1 days per step
+            const STEP_SIZE = 0.1;
             const STEPS_PER_DAY = 10;
             const TOTAL_STEPS = config.durationDays * STEPS_PER_DAY;
 
             // ===== SNAPSHOT FREQUENCY =====
-            const snapshotFrequency = config.snapshotFrequency || 5; // Default to every 5 days
-            const totalSnapshots = Math.ceil(config.durationDays / snapshotFrequency) + 1; // +1 for day 0
-
-            console.log(`📅 Running ${TOTAL_STEPS} steps of ${STEP_SIZE} days`);
-            console.log(`📸 Capturing snapshots every ${snapshotFrequency} days (${totalSnapshots} total)`);
-
+            const snapshotFrequency = config.snapshotFrequency || 5;
+            const totalSnapshots = Math.ceil(config.durationDays / snapshotFrequency) + 1;
             // Capture initial state at step 0
             let snapshot = this.captureSnapshot(engine, 0);
             this.currentBakeJob.snapshots.push(snapshot);
@@ -105,12 +95,7 @@ class BakeSystem {
                         this.currentBakeJob.snapshots.push(snapshot);
 
                         const snapshotNum = this.currentBakeJob.snapshots.length;
-                        console.log(`✅ Captured day ${exactDay.toFixed(0)} (snapshot ${snapshotNum}/${totalSnapshots}) with ${snapshot.particleCount} particles`);
-
-                        // Auto-save every 30 days (regardless of snapshot frequency)
-                        if (exactDay % 30 === 0 && exactDay > 0) {
-                            this.autoSave(exactDay);
-                        }
+                        console.log(`Captured day ${exactDay.toFixed(0)} (snapshot ${snapshotNum}/${totalSnapshots}) with ${snapshot.particleCount} particles`);
                     }
                 }
 
@@ -123,8 +108,8 @@ class BakeSystem {
             this.snapshots = this.currentBakeJob.snapshots;
 
             // Log final stats
-            console.log(`✅ Bake complete! ${this.snapshots.length} snapshots captured`);
-            console.log(`   Day range: ${this.snapshots[0].day} to ${this.snapshots[this.snapshots.length-1].day}`);
+            console.log(`Bake complete! ${this.snapshots.length} snapshots captured`);
+            console.log(`Day range: ${this.snapshots[0].day} to ${this.snapshots[this.snapshots.length-1].day}`);
 
             if (this.callbacks.onBakeComplete) {
                 this.callbacks.onBakeComplete({
@@ -166,13 +151,9 @@ class BakeSystem {
     }
 
     updateProgress(percent, message) {
-        console.log(`📊 updateProgress called: ${percent}% - ${message}`);
-
-        // Check multiple possible callback names
         const callback = this.callbacks.onBakeProgress || this.callbacks.bakeProgress;
 
         if (callback) {
-            console.log('✅ Found progress callback, calling it...');
             callback({
                 percent,
                 message,
@@ -199,7 +180,7 @@ class BakeSystem {
         this.snapshots = snapshots;
         this.currentSnapshotIndex = 0;
         this.interpolationFactor = 0;
-        console.log(`📀 Loaded ${snapshots.length} snapshots for playback`);
+        console.log(`Loaded ${snapshots.length} snapshots for playback`);
 
         // Trigger first frame
         if (this.callbacks.onFrame && snapshots.length > 0) {
@@ -380,13 +361,8 @@ class BakeSystem {
 
 
     on(event, callback) {
-        console.log(`📢 Registering callback for: ${event}`);
-
-        // Store with both naming conventions to be safe
-        this.callbacks[event] = callback;           // Store as-is (e.g., 'frame')
-        this.callbacks['on' + event.charAt(0).toUpperCase() + event.slice(1)] = callback; // Store as onFrame
-
-        console.log('Current callbacks:', Object.keys(this.callbacks));
+        this.callbacks[event] = callback;      
+        this.callbacks['on' + event.charAt(0).toUpperCase() + event.slice(1)] = callback;
         return this;
     }
 
@@ -402,10 +378,9 @@ class BakeSystem {
             interpolationFactor: this.interpolationFactor
         };
     }
-    // Add this method to BakeSystem class
+
     manualExport() {
         if (!this.currentBakeJob || !this.currentBakeJob.snapshots.length) {
-            console.log('No partial results to save');
             return null;
         }
 
@@ -416,7 +391,7 @@ class BakeSystem {
                 simulationStartDate: this.currentBakeJob.config.startDate.toISOString(),
                 simulationEndDate: this.currentBakeJob.config.endDate.toISOString(),
                 totalDays: this.currentBakeJob.config.durationDays,
-                completedDays: this.currentBakeJob.snapshots.length - 1, // -1 for day 0
+                completedDays: this.currentBakeJob.snapshots.length - 1,
                 particleCount: this.currentBakeJob.config.numParticles,
                 phases: this.currentBakeJob.config.phases,
                 partial: true
@@ -433,45 +408,8 @@ class BakeSystem {
         a.download = `proteus_partial_${Date.now()}.json`;
         a.click();
 
-        console.log(`💾 Saved ${partialData.snapshots.length} snapshots`);
+        console.log(`Saved ${partialData.snapshots.length} snapshots`);
         return partialData;
-    }
-    // ===== AUTO-SAVE METHOD =====
-    autoSave(currentDay) {
-        try {
-            // Save only last 10 snapshots to localStorage
-            const recentSnapshots = this.currentBakeJob.snapshots.slice(-10);
-
-            const backup = {
-                version: '1.0',
-                timestamp: Date.now(),
-                day: currentDay,
-                metadata: {
-                    completedDays: currentDay,
-                    totalDays: this.currentBakeJob.config.durationDays,
-                    particleCount: this.currentBakeJob.config.numParticles,
-                    snapshotCount: this.currentBakeJob.snapshots.length
-                },
-                recentSnapshots: recentSnapshots
-            };
-
-            localStorage.setItem('proteus_autosave', JSON.stringify(backup));
-            console.log(`💾 Auto-saved at day ${currentDay}`);
-
-        } catch (e) {
-            console.warn('⚠️ Auto-save failed:', e);
-        }
-    }
-
-    // Add this method to recover from auto-save
-    loadAutoSave() {
-        const saved = localStorage.getItem('proteus_autosave');
-        if (saved) {
-            const backup = JSON.parse(saved);
-            console.log(`📀 Found auto-save from day ${backup.day}`);
-            return backup;
-        }
-        return null;
     }
 }
 
