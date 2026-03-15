@@ -72,48 +72,33 @@ A powerful, interactive 3D visualization tool for simulating the transport of ra
     python -m http.server 8000
     # Navigate to http://localhost:8000/web/
 
-📦 Data Preparation
-Option A: Use Pre-processed Data (Recommended)
+## 📦 Data Preparation
 
-Download pre-processed binary files from Releases (coming soon).
-Option B: Process from Source
-GLORYS Ocean Currents
+**1. Download GLORYS Ocean Currents**
+First, download the raw NetCDF data from CMEMS using the dedicated download script. You will need to configure the script with your desired region and time period.
+```bash
+python scripts/download_GLORYS.py
+```
 
-    Download data from CMEMS
+**2. Convert to Binary Format**
+Convert the downloaded NetCDF files into the efficient binary format used by PROTEUS.
+```bash
+python scripts/prepare_GLORYS.py
+```
 
-        Variables: ugos, vgos (total velocities) and ugosa, vgosa (anomalies)
+**3. Prepare Eddy Atlas Data**
+Download the META3.2 eddy atlas (from AVISO) and interpolate the eddy radii and phase speeds onto the GLORYS grid.
+```bash
+python scripts/prepare_atlas_glorys.py
+```
 
-        Region: 0°N–65°N, 100°E–260°E
+**4. Compute K-Fields (Diffusivity)**
+Calculate the daily eddy diffusivity (K) fields following the Klocker et al. 2012 framework.
+```bash
+python scripts/prepare_GLORYS_K.py
+```
 
-        Period: 2011-03-01 to 2013-02-28
-
-        Download in 4-month intervals
-
-    Convert to binary format
-    bash
-
-    python scripts/prepare_GLORYS.py
-
-Eddy Diffusivity (K-fields)
-
-    Download META3.2 eddy atlas (from AVISO)
-
-    Prepare eddy radius and phase speed grids
-    bash
-
-    python scripts/prepare_atlas_glorys.py
-
-    Compute K-fields following Klocker et al. 2012
-    bash
-
-    python scripts/prepare_GLORYS_K.py
-
-Generate Visualizations
-bash
-
-python scripts/visualize_GLORYS.py
-python scripts/visualize_GLORYS_K.py
-
+```
 🗂️ Project Structure
 text
 
@@ -129,15 +114,13 @@ PROTEUS/
 ├── scripts/                   # Data processing scripts
 │   ├── prepare_GLORYS.py       # NetCDF → binary converter
 │   ├── prepare_GLORYS_K.py     # K-field calculator
-│   ├── prepare_atlas_glorys.py # Eddy atlas processor
-│   └── visualize_*.py          # Visualization generators
+│   ├── prepare_atlas.py # Eddy atlas processor
 │
 ├── data/                      # Data directory (not in repo)
 │   ├── glorys_3yr_bin/         # GLORYS binary files
 │   ├── k_fields_daily/         # K-field binary files
 │   └── eddy_radii_grid_glorys/ # Eddy atlas grids
-│
-└── docs/                       # Documentation
+
 
 
 Contributions are welcome! Areas for development:
@@ -152,28 +135,9 @@ Contributions are welcome! Areas for development:
 
     📦 Atmospheric transport module
 
-See CONTRIBUTING.md for guidelines.
-📄 License
-
-This project is licensed under the MIT License – see LICENSE for details.
-🙏 Acknowledgments
-
-    GLORYS – Global ocean reanalysis data
-
-    META3.2 – Eddy tracking atlas
-
-    Klocker et al. 2012 – Theoretical framework
-
-    HYCOM – Original data infrastructure
-
-    deck.gl – WebGL visualization framework
-
-    CMEMS – Copernicus Marine Service
 
 📫 Contact
 
-Leo – @medeohkr
+Email: leoying.bc@gmail.com
 
 Project Link: https://github.com/medeohkr/PROTEUS
-
-Built with ❤️ for ocean science and accessibility
